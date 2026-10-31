@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ['1.26.x', '1.27.x']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - name: Format
+        run: test -z "$(gofmt -l $(find . -name '*.go' -type f))"
+      - name: Test, vet and build SDK
+        run: |
+          go test -race ./...
+          go vet ./...
+          go build ./...
+      - name: Durable webhook integration
+        working-directory: examples/webhook
+        run: |
+          go mod download
+          go test -race ./...
+          go vet ./...
+          go build -o /tmp/lunixi-webhook-example .
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - name: SDK vulnerability audit
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: Example dependency vulnerability audit
+        working-directory: examples/webhook
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

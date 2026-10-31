@@ -1,0 +1,22 @@
+{
+  "source": "Generated with Node.js JSON.stringify and crypto Ed25519 using the synthetic seed 00..1f; not a merchant credential.",
+  "privateSeed": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f\n-----END PRIVATE KEY-----\n",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\n-----END PUBLIC KEY-----\n",
+  "vectors": [
+    {
+      "input": "{\"z\":\"Şükrü / <>&\",\"10\":\"ten\",\"2\":\"two\",\"nested\":{\"b\":1,\"0\":2,\"01\":3},\"control\":\"\\n\\u0000\",\"line\":\"  \"}",
+      "body": "{\"2\":\"two\",\"10\":\"ten\",\"z\":\"Şükrü / <>&\",\"nested\":{\"0\":2,\"b\":1,\"01\":3},\"control\":\"\\n\\u0000\",\"line\":\"  \"}",
+      "digest": "SHA-256=wh/mJMum7jofIAe0L7ut7U8CkEo1StCr9Ve32BEec90=",
+      "canonical": "POST\n/api/v1/payments/intents?locale=tr\nX-Date:2026-10-31T00:00:00Z\nX-Nonce:0123456789abcdef0123456789abcdef\nDigest:SHA-256=wh/mJMum7jofIAe0L7ut7U8CkEo1StCr9Ve32BEec90=",
+      "signature": "5e5erQ6KdL6tn4dvN4/Z1HCQiN1u7DOAP9UkMHZyaxvbl5zoc7AxeFjMEZqja9p2NVOMZvmCjtFY/pp/36J5DQ=="
+    },
+    {
+      "input": "{\"a\":0.0000001,\"b\":0.000001,\"c\":-0,\"d\":1.2,\"e\":1000000000000}",
+      "body": "{\"a\":1e-7,\"b\":0.000001,\"c\":0,\"d\":1.2,\"e\":1000000000000}",
+      "digest": "SHA-256=DLqWpM1tqLkBVfOabslPZUpKSj8y0irDlUv+ORcHjmI=",
+      "canonical": "POST\n/api/v1/payments/intents?locale=tr\nX-Date:2026-10-31T00:00:00Z\nX-Nonce:0123456789abcdef0123456789abcdef\nDigest:SHA-256=DLqWpM1tqLkBVfOabslPZUpKSj8y0irDlUv+ORcHjmI=",
+      "signature": "BJ45d9XvG8y5tG3sjS/xMEPcI+9QtprpBs1ypc2s03V76+YOj55lD847ql22frgbETRcjWOLDuz7XhOptPzKBQ=="
+    }
+  ]
+}
