@@ -1,15 +1,18 @@
 # Lunixi Go SDK
 
-Güncel kaynak sürümü: **0.1.1**. Aşağıdaki önceki **0.1.0** kayıt deposu sürümü doğrulanmış yayındır; yeni kaynak yamasının orada yayımlandığı iddia edilmez.
+**0.1.1 kaynak etiketi ve resmi Go modül proxy’si üzerinden erişilebilir.** Boş,
+yalıtılmış modül önbelleğiyle indirilen arşiv `sum.golang.org` üzerinden
+doğrulandı; [herkese açık checksum kaydı](https://sum.golang.org/lookup/github.com/!lunixi-!payment/lunixi-go@v0.1.1)
+hem modül hem go.mod hash’lerini içerir.
 
-Yeni kaynak yaması mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur; yeni tipli ürün eşitliği iddiası yoktur.
+0.1.1 sürümü mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur; yeni tipli ürün eşitliği iddiası yoktur.
 
 [English README](../README.md) · [Go dokümantasyonu](https://docs.lunixi.com/tr/sdks/go)
 
 Go 1.26+ sunucu uygulamaları için Lunixi istemcisidir. Çalışma zamanı bağımlılığı yoktur; `net/http`, Gin, Echo ve Fiber ile kullanılabilir.
 
 ```sh
-go get github.com/Lunixi-Payment/lunixi-go@v0.1.0
+go get github.com/Lunixi-Payment/lunixi-go@v0.1.1
 ```
 
 ```go

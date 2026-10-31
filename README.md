@@ -7,9 +7,12 @@
 
 # Lunixi Go SDK
 
-Current source release: **0.1.1**. The earlier **0.1.0** registry version below remains the verified published version; the new source patch is not yet claimed as published there.
+**0.1.1 is publicly available** from its source tag and the official Go module
+proxy. A fresh isolated module download verified the proxy archive against
+`sum.golang.org`; the [public checksum record](https://sum.golang.org/lookup/github.com/!lunixi-!payment/lunixi-go@v0.1.1)
+contains both module and go.mod hashes.
 
-The source patch adds a concrete merchant-site presentation example. **Embedded checkout is the default**: load only the official Lunixi bundle and mount the existing form; methods and multi-card choices stay in the Lunixi panel. Optional hosted mode uses the backend `paymentPageUrl` after exact HTTPS `pay.lunixi.com/payment/` validation. Its token may differ from the embedded token. Missing URLs keep embedded available and hosted on hold/reconciliation with the original attempt/key. Never derive a URL from the browser token. Authorize the customer/order and native browser CSRF before rendering, send `Cache-Control: private, no-store`, preserve the merchant CSP nonce and keep tokens/HTML/redirect URLs out of logs. Generic response data preserves `paymentPageUrl`; no new typed product parity is claimed.
+The 0.1.1 release adds a concrete merchant-site presentation example. **Embedded checkout is the default**: load only the official Lunixi bundle and mount the existing form; methods and multi-card choices stay in the Lunixi panel. Optional hosted mode uses the backend `paymentPageUrl` after exact HTTPS `pay.lunixi.com/payment/` validation. Its token may differ from the embedded token. Missing URLs keep embedded available and hosted on hold/reconciliation with the original attempt/key. Never derive a URL from the browser token. Authorize the customer/order and native browser CSRF before rendering, send `Cache-Control: private, no-store`, preserve the merchant CSP nonce and keep tokens/HTML/redirect URLs out of logs. Generic response data preserves `paymentPageUrl`; no new typed product parity is claimed.
 
 [![CI](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml)
 [![Go reference](https://pkg.go.dev/badge/github.com/Lunixi-Payment/lunixi-go.svg)](https://pkg.go.dev/github.com/Lunixi-Payment/lunixi-go)
@@ -22,7 +25,7 @@ Server-side Go client for Lunixi payments. Works with `net/http`, Gin, Echo, Fib
 ## Install
 
 ```sh
-go get github.com/Lunixi-Payment/lunixi-go@v0.1.0
+go get github.com/Lunixi-Payment/lunixi-go@v0.1.1
 ```
 
 ## Create one client per merchant
@@ -58,7 +61,7 @@ The client is safe to share between goroutines. Token acquisition is lazy, cache
 
 `BaseURL` must be a trusted HTTPS origin, without credentials, path or query. Merchant API paths cannot change origin, traverse directories or call the token endpoint through `Do`.
 
-## Start hosted checkout
+## Start checkout
 
 Load the basket and order from your server-side records. Persist the attempt key before calling, then reuse that key and body after a timeout.
 
