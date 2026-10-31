@@ -10,7 +10,7 @@ import (
 
 var resourceID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$`)
 
-// PaymentClient implements hosted checkout, payment lifecycle and split
+// PaymentClient implements checkout forms, payment lifecycle and split
 // payment merchant endpoints. It never determines an order's paid state.
 type PaymentClient struct{ client *Client }
 
@@ -56,9 +56,9 @@ type Address struct {
 	ZipCode     string `json:"zipCode,omitempty"`
 }
 
-// IntentRequest creates a hosted checkout token. Amount is the basket total
+// IntentRequest creates a checkout form token. Amount is the basket total
 // before a provider-calculated installment fee. Installments are selected in
-// the hosted form, not prescribed in the intent request.
+// the shared form, not prescribed in the intent request.
 type IntentRequest struct {
 	Amount          int64          `json:"amount"`
 	Currency        string         `json:"currency"`

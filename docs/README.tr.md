@@ -1,5 +1,9 @@
 # Lunixi Go SDK
 
+Güncel kaynak sürümü: **0.1.1**. Aşağıdaki önceki **0.1.0** kayıt deposu sürümü doğrulanmış yayındır; yeni kaynak yamasının orada yayımlandığı iddia edilmez.
+
+Yeni kaynak yaması mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur; yeni tipli ürün eşitliği iddiası yoktur.
+
 [English README](../README.md) · [Go dokümantasyonu](https://docs.lunixi.com/tr/sdks/go)
 
 Go 1.26+ sunucu uygulamaları için Lunixi istemcisidir. Çalışma zamanı bağımlılığı yoktur; `net/http`, Gin, Echo ve Fiber ile kullanılabilir.
@@ -78,3 +82,7 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 ```
 
 SQLite örneği CGO ve C derleyicisi ister; ana SDK istemez. Testler merchant anahtarı kullanmaz; TLS sunucuları ve sentetik çapraz dil imza vektörleriyle çalışır. Güvenlik bildirimleri için [SECURITY.md](../SECURITY.md), katkı kuralları için [CONTRIBUTING.md](../CONTRIBUTING.md) dosyasına bakın.
+
+## Mağaza içi entegrasyon örneği
+
+Kaynak örnekteki `RenderCheckoutHTML(token, nonce)` ve `HostedCheckoutURL(paymentPageUrl)` yardımcıları [presentation.go](https://github.com/Lunixi-Payment/lunixi-go/blob/main/examples/checkout/presentation.go) dosyasındadır. Kendi yetkili ve CSRF korumalı mağaza controller’ınıza uyarlayın. CLI varsayılanı `LUNIXI_CHECKOUT_MODE=embedded`; `hosted` backend adresini doğrular. HTML, token veya URL konsola basılmaz. Bunlar yeni SDK istemci yöntemleri değil, kaynak örnek yardımcılarıdır.

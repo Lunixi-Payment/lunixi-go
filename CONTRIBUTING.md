@@ -1,34 +1,9 @@
 # Contributing
 
-Thank you for helping improve Lunixi Go SDK.
+Open an issue describing the behavior or proposed change before a large feature. Security reports belong in the private channel in [SECURITY.md](SECURITY.md).
 
-## How this repository works
+Use Go 1.26+ and keep the root SDK free of runtime dependencies. Keep shared signing, transport, money and webhook rules centralized. Add only publicly documented API endpoints; preserve response envelopes and expose pending/reconciliation states without interpreting them as success. Framework examples must use the same client.
 
-This repository is published from Lunixi's internal source repository. Each
-release arrives here as a single `Release x.y.z` commit with a `vx.y.z` tag, so
-pull requests cannot be merged here directly.
+Run formatting, `go test -race ./...`, `go vet ./...`, `go build ./...` and govulncheck in the root module, then the same checks in `examples/webhook` (CGO required). Tests must run with no real merchant credentials or payment calls. Add regression coverage for meaningful security/financial changes; generated fixtures must be synthetic and independently reproducible.
 
-- **Bugs and requests:** open an [issue](https://github.com/Lunixi-Payment/lunixi-go/issues/new/choose).
-  This is the fastest way to get a fix.
-- **Code suggestions:** you are welcome to open a pull request to show the
-  change. We apply it in the source repository, credit you in the changelog and
-  close the pull request when the release that contains it is published.
-
-## Running it locally
-
-```bash
-go test -race ./...
-go vet ./...
-```
-
-## Before you open an issue
-
-- Check that you are on the latest release.
-- Include the Lunixi `requestId` from the error if you have one; it lets us
-  find the request on our side.
-- Never paste API keys, private keys, webhook secrets, tokens or customer data.
-  For security problems follow [SECURITY.md](SECURITY.md) instead.
-
-## Documentation
-
-Integration guides are at https://docs.lunixi.com/sdks/go.
+Update the English README, Turkish guide, changelog and examples when the public API changes. Do not commit secrets, local database files or private/customer data. Pull requests should explain the trigger, resulting behavior and actual validation. Keep diffs focused and preserve the original Lunixi logo.

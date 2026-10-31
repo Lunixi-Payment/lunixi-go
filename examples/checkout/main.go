@@ -37,11 +37,24 @@ func run() error {
 		return err
 	}
 	var checkout struct {
-		ID    string `json:"id"`
-		Token string `json:"token"`
+		PaymentID      string `json:"paymentId"`
+		Token          string `json:"token"`
+		PaymentPageURL string `json:"paymentPageUrl"`
 	}
-	if err := response.DecodeData(&checkout); err != nil || checkout.Token == "" {
+	if err := response.DecodeData(&checkout); err != nil || checkout.PaymentID == "" || checkout.Token == "" {
 		return fmt.Errorf("gateway response did not contain a checkout token")
+	}
+	mode := os.Getenv("LUNIXI_CHECKOUT_MODE")
+	if mode == "" || mode == "embedded" {
+		if _, err := RenderCheckoutHTML(checkout.Token, ""); err != nil {
+			return err
+		}
+	} else if mode == "hosted" {
+		if _, err := HostedCheckoutURL(checkout.PaymentPageURL); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("LUNIXI_CHECKOUT_MODE must be embedded or hosted")
 	}
 	// In a real server endpoint send Token only to this order's authenticated
 	// customer with Cache-Control: no-store; initialize the existing Lunixi form.

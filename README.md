@@ -7,6 +7,10 @@
 
 # Lunixi Go SDK
 
+Current source release: **0.1.1**. The earlier **0.1.0** registry version below remains the verified published version; the new source patch is not yet claimed as published there.
+
+The source patch adds a concrete merchant-site presentation example. **Embedded checkout is the default**: load only the official Lunixi bundle and mount the existing form; methods and multi-card choices stay in the Lunixi panel. Optional hosted mode uses the backend `paymentPageUrl` after exact HTTPS `pay.lunixi.com/payment/` validation. Its token may differ from the embedded token. Missing URLs keep embedded available and hosted on hold/reconciliation with the original attempt/key. Never derive a URL from the browser token. Authorize the customer/order and native browser CSRF before rendering, send `Cache-Control: private, no-store`, preserve the merchant CSP nonce and keep tokens/HTML/redirect URLs out of logs. Generic response data preserves `paymentPageUrl`; no new typed product parity is claimed.
+
 [![CI](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml)
 [![Go reference](https://pkg.go.dev/badge/github.com/Lunixi-Payment/lunixi-go.svg)](https://pkg.go.dev/github.com/Lunixi-Payment/lunixi-go)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -168,3 +172,7 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 Run that audit in both modules. CI checks Go 1.26/1.27, formatting, vet, the race detector, builds and vulnerability reachability. Tests use real TLS test servers and independently produced Node.js Ed25519/JSON/HMAC fixtures. All fixture keys/secrets are synthetic and unusable for merchant access. Tests require no merchant credentials or network payment calls.
 
 [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+
+## Merchant-page integration example
+
+The source example defines `RenderCheckoutHTML(token, nonce)` and `HostedCheckoutURL(paymentPageUrl)` in [presentation.go](https://github.com/Lunixi-Payment/lunixi-go/blob/main/examples/checkout/presentation.go). Copy/adapt these helpers inside your existing authorized, CSRF-protected merchant controller. The CLI defaults to `LUNIXI_CHECKOUT_MODE=embedded`; `hosted` validates the backend URL. It renders/validates internally and intentionally prints neither HTML, token nor URL. These example functions are not new SDK client methods.
