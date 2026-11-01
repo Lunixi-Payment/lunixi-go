@@ -1,6 +1,6 @@
 # Lunixi Go SDK
 
-**1.0.0**, kanonik küçük birim string para sözleşmesini kullanır. [Geçiş rehberini](../MIGRATION-1.0.md) uygulayın; herkese açık sürüm etiketi kullanılabilir olduğunda aşağıdaki komutla yükleyin. `go.sum` dosyasını saklayın ve modülü Go proxy/checksum veritabanıyla doğrulayın.
+**1.0.0**, kanonik küçük birim string para sözleşmesini kullanır. [Geçiş rehberini](../MIGRATION-1.0.md) uygulayın; yayımlanan [v1.0.0 modülünü](https://github.com/Lunixi-Payment/lunixi-go/tree/v1.0.0) aşağıdaki komutla yükleyin. `go.sum` dosyasını saklayın ve modülü Go proxy/checksum veritabanıyla doğrulayın.
 
 1.0.0 sürümü mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur; yeni tipli ürün eşitliği iddiası yoktur.
 

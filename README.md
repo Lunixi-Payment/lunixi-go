@@ -21,7 +21,7 @@ Server-side Go client for Lunixi payments. Works with `net/http`, Gin, Echo, Fib
 
 ## Installation
 
-Use the immutable module version after the public tag is available:
+Install the published immutable [v1.0.0 module](https://github.com/Lunixi-Payment/lunixi-go/tree/v1.0.0):
 
 ```sh
 go get github.com/Lunixi-Payment/lunixi-go@v1.0.0
