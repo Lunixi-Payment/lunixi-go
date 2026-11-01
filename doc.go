@@ -7,4 +7,4 @@
 package lunixi
 
 // Version is the SDK semantic version.
-const Version = "0.1.1"
+const Version = "1.0.0"

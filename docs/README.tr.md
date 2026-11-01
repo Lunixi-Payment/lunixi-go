@@ -25,17 +25,17 @@ client, err := lunixi.New(lunixi.Config{
 if err != nil { return err }
 
 response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
-    Amount: 10050, Currency: "TRY", OrderID: "ORD-1001",
+    Amount: "10050", Currency: "TRY", OrderID: "ORD-1001",
     CallbackURL: "https://merchant.example/payment/return",
     BasketItems: []lunixi.BasketItem{
-        {ID:"line-1", Name:"Örnek ürün", ItemType:"PHYSICAL", Price:10050},
+        {ID:"line-1", Name:"Örnek ürün", ItemType:"PHYSICAL", Price:"10050"},
     },
 }, kayitliDenemeAnahtari)
 ```
 
 `lunixi` import yolu `github.com/Lunixi-Payment/lunixi-go` şeklindedir. İstemciyi her merchant anahtarı için bir kez oluşturup paylaşın. SDK Ed25519 imzasını, token önbelleğini ve eşzamanlı yenilemeyi yönetir. Özel anahtar sunucuda kalır; PKCS8 PEM / base64 DER / base64 Ed25519 seed kabul edilir. TEST/LIVE ortamını merchant anahtarı belirler. BaseURL güvenilir HTTPS kökeni olmalıdır; yönlendirmeler izlenmez.
 
-`Amount` ve sepet `Price` alanları tam sayı kuruştur: `10050` = 100,50 TRY. Sepet toplamı `Amount` ile aynı olmalıdır. Kaldırılmış kök alanlar `price`, `paidPrice`, `autoCapture` gönderilmez. Taksit ve vade farkını Lunixi formu yönetir. Token yalnız ilgili siparişin yetkili müşterisine `Cache-Control: no-store` ile verilir; loglanmaz. PAN/CVV bu örneklere girmez.
+`Amount` ve sepet `Price` alanları kanonik alt birim string değeridir: `"10050"` = 100,50 TRY. Sepet toplamı `Amount` ile aynı olmalıdır. Kaldırılmış kök alanlar `price`, `paidPrice`, `autoCapture` gönderilmez. Taksit ve vade farkını Lunixi formu yönetir. Token yalnız ilgili siparişin yetkili müşterisine `Cache-Control: no-store` ile verilir; loglanmaz. PAN/CVV bu örneklere girmez.
 
 ## Kapsam
 

@@ -3,8 +3,10 @@ package lunixi
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -21,7 +23,7 @@ type BasketItem struct {
 	ID                string         `json:"id"`
 	Name              string         `json:"name"`
 	ItemType          string         `json:"itemType"`
-	Price             int64          `json:"price"`
+	Price             string         `json:"price"`
 	Category1         string         `json:"category1,omitempty"`
 	Category2         string         `json:"category2,omitempty"`
 	InsuranceData     map[string]any `json:"insuranceData,omitempty"`
@@ -60,7 +62,7 @@ type Address struct {
 // before a provider-calculated installment fee. Installments are selected in
 // the shared form, not prescribed in the intent request.
 type IntentRequest struct {
-	Amount          int64          `json:"amount"`
+	Amount          string         `json:"amount"`
 	Currency        string         `json:"currency"`
 	OrderID         string         `json:"orderId"`
 	CallbackURL     string         `json:"callbackUrl"`
@@ -107,19 +109,20 @@ func (r IntentRequest) validate() error {
 			if !positiveMoney(item.Price) || strings.TrimSpace(item.ID) == "" || strings.TrimSpace(item.Name) == "" || (item.ItemType != "PHYSICAL" && item.ItemType != "VIRTUAL") {
 				return invalid("basket item")
 			}
-			if item.Price > MaxSafeInteger-total {
+			if moneyInteger(item.Price) > math.MaxInt64-total {
 				return invalid("basket total overflow")
 			}
-			total += item.Price
+			total += moneyInteger(item.Price)
 		}
-		if total != r.Amount {
+		if total != moneyInteger(r.Amount) {
 			return invalid("basket total must equal amount")
 		}
 	}
 	return nil
 }
 
-func positiveMoney(amount int64) bool { return amount > 0 && amount <= MaxSafeInteger }
+func positiveMoney(amount string) bool { return validMinor(amount, true, false) }
+func moneyInteger(amount string) int64 { n, _ := strconv.ParseInt(amount, 10, 64); return n }
 func idPath(id string) (string, error) {
 	if !resourceID.MatchString(id) || id == "." || id == ".." {
 		return "", invalid("resource id")
@@ -166,13 +169,13 @@ func (p *PaymentClient) Methods(ctx context.Context) (*Response, error) {
 
 // Capture captures the full authorization when amount is nil, or a specified
 // positive integer amount. It must reference the original payment account.
-func (p *PaymentClient) Capture(ctx context.Context, id string, amount *int64, key string) (*Response, error) {
+func (p *PaymentClient) Capture(ctx context.Context, id string, amount *string, key string) (*Response, error) {
 	return p.mutation(ctx, "capture", id, amount, "", key)
 }
 
 // Refund refunds the full refundable payment when amount is nil, or a partial
 // amount. Unknown outcomes must be reconciled with the same key.
-func (p *PaymentClient) Refund(ctx context.Context, id string, amount *int64, reason, key string) (*Response, error) {
+func (p *PaymentClient) Refund(ctx context.Context, id string, amount *string, reason, key string) (*Response, error) {
 	return p.mutation(ctx, "refund", id, amount, reason, key)
 }
 
@@ -188,7 +191,7 @@ func (p *PaymentClient) Void(ctx context.Context, id, key string) (*Response, er
 	return p.client.Do(ctx, Request{Method: "POST", Path: "/api/v1/payments/" + id + "/void", IdempotencyKey: key})
 }
 
-func (p *PaymentClient) mutation(ctx context.Context, action, id string, amount *int64, reason, key string) (*Response, error) {
+func (p *PaymentClient) mutation(ctx context.Context, action, id string, amount *string, reason, key string) (*Response, error) {
 	id, e := idPath(id)
 	if e != nil {
 		return nil, e
@@ -224,11 +227,11 @@ func (p *PaymentClient) Split(ctx context.Context, body map[string]any, key stri
 		return nil, e
 	}
 	var request struct {
-		TotalAmount int64  `json:"totalAmount"`
+		TotalAmount string `json:"totalAmount"`
 		Currency    string `json:"currency"`
 		OwnerRef    string `json:"ownerRef"`
 		Legs        []struct {
-			Amount int64 `json:"amount"`
+			Amount string `json:"amount"`
 		} `json:"legs"`
 	}
 	if json.Unmarshal(raw, &request) != nil || !positiveMoney(request.TotalAmount) || len(request.Currency) != 3 || request.OwnerRef == "" || len(request.Legs) < 1 || len(request.Legs) > 5 {
@@ -236,12 +239,12 @@ func (p *PaymentClient) Split(ctx context.Context, body map[string]any, key stri
 	}
 	var total int64
 	for _, leg := range request.Legs {
-		if !positiveMoney(leg.Amount) || leg.Amount > MaxSafeInteger-total {
+		if !positiveMoney(leg.Amount) || moneyInteger(leg.Amount) > math.MaxInt64-total {
 			return nil, invalid("split leg amount")
 		}
-		total += leg.Amount
+		total += moneyInteger(leg.Amount)
 	}
-	if total != request.TotalAmount {
+	if total != moneyInteger(request.TotalAmount) {
 		return nil, invalid("split amount mismatch")
 	}
 	return p.client.Do(ctx, Request{Method: "POST", Path: "/api/v1/payments/split", Body: body, IdempotencyKey: key})
@@ -259,7 +262,7 @@ func (p *PaymentClient) GetSplit(ctx context.Context, id string) (*Response, err
 
 // RefundSplit asks the gateway to distribute a refund across refundable legs.
 // Partial or failed allocations return an APIError and require review.
-func (p *PaymentClient) RefundSplit(ctx context.Context, id string, amount int64, reason, key string) (*Response, error) {
+func (p *PaymentClient) RefundSplit(ctx context.Context, id string, amount string, reason, key string) (*Response, error) {
 	id, e := idPath(id)
 	if e != nil {
 		return nil, e
@@ -277,7 +280,22 @@ func (p *PaymentClient) RefundSplit(ctx context.Context, id string, amount int64
 	return p.client.Do(ctx, Request{Method: "POST", Path: "/api/v1/payments/split/" + id + "/refund", Body: body, IdempotencyKey: key})
 }
 
+var optionalOperationAmountRoute = regexp.MustCompile(`^/api/v1/payments/(?:split/)?[^/]+/(?:capture|refund)$`)
+
 func validatePaymentBody(path string, body []byte) error {
+	if optionalOperationAmountRoute.MatchString(path) && len(body) > 0 {
+		var object map[string]json.RawMessage
+		if json.Unmarshal(body, &object) != nil || object == nil {
+			return invalid("operation body must be an object")
+		}
+		if raw, present := object["amount"]; present {
+			var amount string
+			if json.Unmarshal(raw, &amount) != nil || !positiveMoney(amount) {
+				return invalid("explicit operation amount must be positive minor-unit text")
+			}
+		}
+		return nil
+	}
 	if path != "/api/v1/payments/intents" && path != "/api/v1/payments/marketplace/intents" && path != "/api/v1/payments/direct/payment" {
 		return nil
 	}
@@ -290,7 +308,7 @@ func validatePaymentBody(path string, body []byte) error {
 			return invalid("removed payment field: " + name)
 		}
 	}
-	var amount int64
+	var amount string
 	if json.Unmarshal(object["amount"], &amount) != nil || !positiveMoney(amount) {
 		return invalid("amount must be positive integer minor units")
 	}

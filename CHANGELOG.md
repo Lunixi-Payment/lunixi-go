@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0 — 2026-11-01
+
+- Reject explicit null capture/refund amounts; full remaining operations use omission or the dedicated API described in MIGRATION-1.0.md.
+
+- Breaking: canonical money minor strings in requests and responses; exact decimal currency conversion. See [MIGRATION-1.0.md](MIGRATION-1.0.md).
+
 ## 0.1.1 - 2026-10-31
 
 - Provide a concrete merchant-site renderer/example using the existing official Lunixi checkout form by default, with an explicit optional hosted presentation.

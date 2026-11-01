@@ -125,6 +125,11 @@ func (c *Client) Do(ctx context.Context, in Request) (*Response, error) {
 			return nil, invalid("request body exceeds 8 MiB")
 		}
 	}
+	if fiatRoute(in.Path) {
+		if err = validateMoneyJSON(body, false); err != nil {
+			return nil, err
+		}
+	}
 	if err = validatePaymentBody(in.Path, body); err != nil {
 		return nil, err
 	}
@@ -244,6 +249,11 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	if strings.Contains(strings.ToLower(r.ContentType), "json") || json.Valid(raw) {
 		if !json.Valid(raw) {
 			return nil, &APIError{StatusCode: response.StatusCode, Code: "INVALID_JSON_RESPONSE", RequestID: r.RequestID}
+		}
+		if fiatRoute(path) {
+			if err := validateMoneyJSON(raw, true); err != nil {
+				return nil, err
+			}
 		}
 		r.Envelope = append(json.RawMessage(nil), raw...)
 		var envelope struct {

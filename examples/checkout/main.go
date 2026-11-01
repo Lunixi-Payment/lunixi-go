@@ -29,9 +29,9 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
-		Amount: 10050, Currency: "TRY", OrderID: orderID,
+		Amount: "10050", Currency: "TRY", OrderID: orderID,
 		CallbackURL: "https://merchant.example/payment/return",
-		BasketItems: []lunixi.BasketItem{{ID: "basket-1", Name: "Example product", ItemType: "PHYSICAL", Price: 10050}},
+		BasketItems: []lunixi.BasketItem{{ID: "basket-1", Name: "Example product", ItemType: "PHYSICAL", Price: "10050"}},
 	}, attemptKey)
 	if err != nil {
 		return err

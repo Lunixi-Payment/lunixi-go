@@ -35,7 +35,7 @@ func newTestClient(t *testing.T, handler http.HandlerFunc, mutate func(*Config))
 }
 
 func validIntent() IntentRequest {
-	return IntentRequest{Amount: 10050, Currency: "TRY", OrderID: "order-123", CallbackURL: "https://merchant.example/payments/return", BasketItems: []BasketItem{{ID: "sku-1", Name: "Example", ItemType: "PHYSICAL", Price: 10050}}}
+	return IntentRequest{Amount: "10050", Currency: "TRY", OrderID: "order-123", CallbackURL: "https://merchant.example/payments/return", BasketItems: []BasketItem{{ID: "sku-1", Name: "Example", ItemType: "PHYSICAL", Price: "10050"}}}
 }
 
 func TestConfigurationLoggingDoesNotExposeCredentials(t *testing.T) {
@@ -96,7 +96,7 @@ func TestSignedTransportAndTokenReuse(t *testing.T) {
 			t.Error("idempotency key changed")
 		}
 		w.Header().Set("X-Request-Id", "req-123")
-		fmt.Fprint(w, `{"success":true,"data":{"intentId":"intent-1","token":"ct_example","amount":10050},"pageInfo":{"hasMore":false}}`)
+		fmt.Fprint(w, `{"success":true,"data":{"intentId":"intent-1","token":"ct_example","amount":"10050"},"pageInfo":{"hasMore":false}}`)
 	}, nil)
 	response, e := client.Payments.CreateIntent(context.Background(), validIntent(), "attempt-0000000001")
 	if e != nil {
@@ -109,7 +109,7 @@ func TestSignedTransportAndTokenReuse(t *testing.T) {
 	if e = response.DecodeData(&data); e != nil {
 		t.Fatal(e)
 	}
-	if _, ok := data["amount"].(json.Number); !ok {
+	if _, ok := data["amount"].(string); !ok {
 		t.Fatal("money decoded to float64")
 	}
 	if _, e = client.Payments.Get(context.Background(), "intent-1"); e != nil {
@@ -234,7 +234,7 @@ func TestMutationRetriesReuseBodyAndIdempotency(t *testing.T) {
 		}
 		fmt.Fprint(w, `{"data":{"status":"CAPTURED"}}`)
 	}, func(c *Config) { c.MaxRetries = 1 })
-	amount := int64(100)
+	amount := "100"
 	if _, e := client.Payments.Capture(context.Background(), "p-1", &amount, "attempt-0000000001"); e != nil {
 		t.Fatal(e)
 	}
@@ -267,13 +267,13 @@ func TestNonIdempotentMutationIsNotRetried(t *testing.T) {
 func TestAmountAndRemovedFieldValidationBeforeNetwork(t *testing.T) {
 	var calls atomic.Int32
 	client, _ := newTestClient(t, func(http.ResponseWriter, *http.Request) { calls.Add(1) }, nil)
-	for _, body := range []map[string]any{{"amount": 100, "price": 100}, {"amount": 100, "paidPrice": nil}, {"amount": 100.5}, {"amount": int64(MaxSafeInteger + 1)}} {
+	for _, body := range []map[string]any{{"amount": "100", "price": "100"}, {"amount": "100", "paidPrice": nil}, {"amount": 100.5}, {"amount": int64(MaxSafeInteger + 1)}} {
 		if _, e := client.Do(context.Background(), Request{Method: "POST", Path: "/api/v1/payments/intents", Body: body, IdempotencyKey: "attempt-0000000001"}); e == nil {
 			t.Fatalf("accepted %v", body)
 		}
 	}
 	request := validIntent()
-	request.BasketItems[0].Price = 1
+	request.BasketItems[0].Price = "1"
 	if _, e := client.Payments.CreateIntent(context.Background(), request, "attempt-0000000001"); e == nil {
 		t.Fatal("accepted unbalanced basket")
 	}
@@ -343,7 +343,7 @@ func TestSplitPendingRemainsExplicit(t *testing.T) {
 		w.WriteHeader(400)
 		fmt.Fprint(w, `{"success":false,"code":"AWAITING_ACTION","data":{"splitPaymentId":"split-1","status":"AWAITING_ACTION"}}`)
 	}, nil)
-	body := map[string]any{"totalAmount": 100, "currency": "TRY", "ownerRef": "customer-1", "legs": []any{map[string]any{"amount": 100, "cardToken": "saved-test-token"}}}
+	body := map[string]any{"totalAmount": "100", "currency": "TRY", "ownerRef": "customer-1", "legs": []any{map[string]any{"amount": "100", "cardToken": "saved-test-token"}}}
 	r, e := client.Payments.Split(context.Background(), body, "attempt-0000000001")
 	if e != nil {
 		t.Fatal(e)

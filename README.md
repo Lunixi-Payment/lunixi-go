@@ -22,11 +22,16 @@ The 0.1.1 release adds a concrete merchant-site presentation example. **Embedded
 
 Server-side Go client for Lunixi payments. Works with `net/http`, Gin, Echo, Fiber and other Go frameworks without a framework dependency. The SDK uses the Go standard library only. Go 1.26 or newer is required.
 
-## Install
+## Use the unreleased source
 
-```sh
-go get github.com/Lunixi-Payment/lunixi-go@v0.1.1
+Use a local module replacement while 1.0.0 is being prepared:
+
+```go
+require github.com/Lunixi-Payment/lunixi-go v1.0.0
+replace github.com/Lunixi-Payment/lunixi-go => /absolute/path/to/reviewed/entegrasyon/go
 ```
+
+The historical 0.1.1 release does not implement the new money-string contract.
 
 ## Create one client per merchant
 
@@ -70,12 +75,12 @@ ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 defer cancel()
 
 response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
-    Amount:      10050, // 100.50 TRY, integer minor units
+    Amount:      "10050", // 100.50 TRY, canonical minor-unit strings
     Currency:    "TRY",
     OrderID:     "ORD-1001",
     CallbackURL: "https://merchant.example/payment/return",
     BasketItems: []lunixi.BasketItem{
-        {ID: "line-1", Name: "Example product", ItemType: "PHYSICAL", Price: 10050},
+        {ID: "line-1", Name: "Example product", ItemType: "PHYSICAL", Price: "10050"},
     },
 }, persistedAttemptKey)
 if err != nil { return err }
@@ -87,7 +92,7 @@ if checkout.Token == "" { return errors.New("missing checkout token") }
 // Cache-Control: no-store. Initialize the existing Lunixi checkout form.
 ```
 
-Amounts are `int64` minor units, positive and no greater than `9007199254740991`. Basket `Price` is the line total; line totals must equal `Amount`. Do not send the removed root fields `price`, `paidPrice`, `autoCapture`. Installment selection and fees belong to the Lunixi form. Buyer/address and documented insurance basket details can be supplied on `IntentRequest`; optional method restrictions can narrow the methods already enabled in the Lunixi panel.
+Amounts are `string` minor units, positive and no greater than `9223372036854775807`. Basket `Price` is the line total; line totals must equal `Amount`. Do not send the removed root fields `price`, `paidPrice`, `autoCapture`. Installment selection and fees belong to the Lunixi form. Buyer/address and documented insurance basket details can be supplied on `IntentRequest`; optional method restrictions can narrow the methods already enabled in the Lunixi panel.
 
 The existing Lunixi form handles cards and enabled alternative methods; this SDK does not build another form or collect PAN/CVV. **A checkout token, a browser return, HTTP 200 or an authorization is not proof of capture.** Finalize only from an authenticated gateway result after checking your stored order ID, merchant, payment ID, expected amount/currency and final capture/reconciliation state. Apply corresponding refund, void and dispute transitions separately.
 
@@ -179,3 +184,5 @@ Run that audit in both modules. CI checks Go 1.26/1.27, formatting, vet, the rac
 ## Merchant-page integration example
 
 The source example defines `RenderCheckoutHTML(token, nonce)` and `HostedCheckoutURL(paymentPageUrl)` in [presentation.go](https://github.com/Lunixi-Payment/lunixi-go/blob/main/examples/checkout/presentation.go). Copy/adapt these helpers inside your existing authorized, CSRF-protected merchant controller. The CLI defaults to `LUNIXI_CHECKOUT_MODE=embedded`; `hosted` validates the backend URL. It renders/validates internally and intentionally prints neither HTML, token nor URL. These example functions are not new SDK client methods.
+
+Prepared 1.0.0 is unreleased; see [migration](MIGRATION-1.0.md).
