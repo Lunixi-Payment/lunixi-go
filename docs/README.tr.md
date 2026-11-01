@@ -1,18 +1,15 @@
 # Lunixi Go SDK
 
-**0.1.1 kaynak etiketi ve resmi Go modül proxy’si üzerinden erişilebilir.** Boş,
-yalıtılmış modül önbelleğiyle indirilen arşiv `sum.golang.org` üzerinden
-doğrulandı; [herkese açık checksum kaydı](https://sum.golang.org/lookup/github.com/!lunixi-!payment/lunixi-go@v0.1.1)
-hem modül hem go.mod hash’lerini içerir.
+**1.0.0**, kanonik küçük birim string para sözleşmesini kullanır. [Geçiş rehberini](../MIGRATION-1.0.md) uygulayın; herkese açık sürüm etiketi kullanılabilir olduğunda aşağıdaki komutla yükleyin. `go.sum` dosyasını saklayın ve modülü Go proxy/checksum veritabanıyla doğrulayın.
 
-0.1.1 sürümü mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur; yeni tipli ürün eşitliği iddiası yoktur.
+1.0.0 sürümü mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur; yeni tipli ürün eşitliği iddiası yoktur.
 
 [English README](../README.md) · [Go dokümantasyonu](https://docs.lunixi.com/tr/sdks/go)
 
 Go 1.26+ sunucu uygulamaları için Lunixi istemcisidir. Çalışma zamanı bağımlılığı yoktur; `net/http`, Gin, Echo ve Fiber ile kullanılabilir.
 
 ```sh
-go get github.com/Lunixi-Payment/lunixi-go@v0.1.1
+go get github.com/Lunixi-Payment/lunixi-go@v1.0.0
 ```
 
 ```go
@@ -41,7 +38,7 @@ response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
 
 - `Payments`: intent, sorgulama, listeleme, yöntemler, capture, refund, void, split ödeme ve split iadesi.
 - `Fraud`: karar değerlendirme, olay gönderme ve karar sorguları.
-- `Client.Do`: diğer belgelenmiş `/api/v1/` uçlarına aynı imzalı taşıma katmanıyla erişim. Sigorta, cüzdan, banka, pazaryeri vb. için 0.1.0 sürümünde ayrı tipli yardımcılar yoktur; REST şeması izlenir.
+- `Client.Do`: diğer belgelenmiş `/api/v1/` uçlarına aynı imzalı taşıma katmanıyla erişim. Sigorta, cüzdan, banka, pazaryeri vb. için bu sürümde ayrı tipli yardımcılar yoktur; REST şeması izlenir.
 - `WebhookVerifier` ve `SQLInbox`: ham gövde v2 imzası ve kalıcı transaction içinde tekrar engelleme.
 
 Yanıtta `Data`, `PageInfo`, asıl zarf ve ikili `Bytes` korunur. `DecodeData` arayüz değerleri için `json.Number` kullanır. Split bekleyen durumlarda HTTP 400 içeren `Response` dönebilir; bu tahsilat değildir. Siparişi yalnız imzalı webhook / yetkili sunucu sorgusunda sipariş, merchant, ödeme kimliği, tutar, para birimi ve nihai tahsilat durumunu eşleştirerek tamamlayın. Tarayıcı dönüşü, HTTP 200 veya `AUTHORIZED` ödeme kanıtı değildir.

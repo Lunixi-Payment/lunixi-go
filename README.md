@@ -7,12 +7,9 @@
 
 # Lunixi Go SDK
 
-**0.1.1 is publicly available** from its source tag and the official Go module
-proxy. A fresh isolated module download verified the proxy archive against
-`sum.golang.org`; the [public checksum record](https://sum.golang.org/lookup/github.com/!lunixi-!payment/lunixi-go@v0.1.1)
-contains both module and go.mod hashes.
+**Version 1.0.0 uses canonical minor-unit strings for money.** This is a breaking change from 0.x; update request and response handling together. See [migration](MIGRATION-1.0.md).
 
-The 0.1.1 release adds a concrete merchant-site presentation example. **Embedded checkout is the default**: load only the official Lunixi bundle and mount the existing form; methods and multi-card choices stay in the Lunixi panel. Optional hosted mode uses the backend `paymentPageUrl` after exact HTTPS `pay.lunixi.com/payment/` validation. Its token may differ from the embedded token. Missing URLs keep embedded available and hosted on hold/reconciliation with the original attempt/key. Never derive a URL from the browser token. Authorize the customer/order and native browser CSRF before rendering, send `Cache-Control: private, no-store`, preserve the merchant CSP nonce and keep tokens/HTML/redirect URLs out of logs. Generic response data preserves `paymentPageUrl`; no new typed product parity is claimed.
+Version 1.0.0 includes a concrete merchant-site presentation example. **Embedded checkout is the default**: load only the official Lunixi bundle and mount the existing form; methods and multi-card choices stay in the Lunixi panel. Optional hosted mode uses the backend `paymentPageUrl` after exact HTTPS `pay.lunixi.com/payment/` validation. Its token may differ from the embedded token. Missing URLs keep embedded available and hosted on hold/reconciliation with the original attempt/key. Never derive a URL from the browser token. Authorize the customer/order and native browser CSRF before rendering, send `Cache-Control: private, no-store`, preserve the merchant CSP nonce and keep tokens/HTML/redirect URLs out of logs. Generic response data preserves `paymentPageUrl`; no new typed product parity is claimed.
 
 [![CI](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml)
 [![Go reference](https://pkg.go.dev/badge/github.com/Lunixi-Payment/lunixi-go.svg)](https://pkg.go.dev/github.com/Lunixi-Payment/lunixi-go)
@@ -22,16 +19,15 @@ The 0.1.1 release adds a concrete merchant-site presentation example. **Embedded
 
 Server-side Go client for Lunixi payments. Works with `net/http`, Gin, Echo, Fiber and other Go frameworks without a framework dependency. The SDK uses the Go standard library only. Go 1.26 or newer is required.
 
-## Use the unreleased source
+## Installation
 
-Use a local module replacement while 1.0.0 is being prepared:
+Use the immutable module version after the public tag is available:
 
-```go
-require github.com/Lunixi-Payment/lunixi-go v1.0.0
-replace github.com/Lunixi-Payment/lunixi-go => /absolute/path/to/reviewed/entegrasyon/go
+```sh
+go get github.com/Lunixi-Payment/lunixi-go@v1.0.0
 ```
 
-The historical 0.1.1 release does not implement the new money-string contract.
+Keep `go.sum` and verify the module through the Go proxy and checksum database. The 0.x versions use the previous money contract.
 
 ## Create one client per merchant
 
@@ -115,7 +111,7 @@ refund, err := client.Payments.Refund(ctx, paymentID, &partial, "Customer return
 
 `Split` accepts the documented gateway map and locally checks safe total/leg amounts, 1–5 legs and the leg sum. Method-specific fields remain governed by the API schema. A pending split may return a `Response` with HTTP 400; inspect `StatusCode` and signed gateway status. `AUTHORIZED`, `AWAITING_*`, `COMPENSATING`, partial refunds and reconciliation-required states do not imply a fulfilled order. Root SDK responses preserve the original envelope, `Data`, `PageInfo` and binary `Bytes`; `DecodeData` uses `json.Number` for interface values.
 
-Wallet, bank-connect, payment links, insurance, marketplace, subscription, identity, reference and other services currently use `Do` with their documented schema. Version 0.1.0 does not claim typed helper parity for these services. For example:
+Wallet, bank-connect, payment links, insurance, marketplace, subscription, identity, reference and other services currently use `Do` with their documented schema. Version 1.0.0 does not claim typed helper parity for these services. For example:
 
 ```go
 response, err := client.Do(ctx, lunixi.Request{
@@ -185,4 +181,4 @@ Run that audit in both modules. CI checks Go 1.26/1.27, formatting, vet, the rac
 
 The source example defines `RenderCheckoutHTML(token, nonce)` and `HostedCheckoutURL(paymentPageUrl)` in [presentation.go](https://github.com/Lunixi-Payment/lunixi-go/blob/main/examples/checkout/presentation.go). Copy/adapt these helpers inside your existing authorized, CSRF-protected merchant controller. The CLI defaults to `LUNIXI_CHECKOUT_MODE=embedded`; `hosted` validates the backend URL. It renders/validates internally and intentionally prints neither HTML, token nor URL. These example functions are not new SDK client methods.
 
-Prepared 1.0.0 is unreleased; see [migration](MIGRATION-1.0.md).
+Before upgrading from 0.x, follow [the migration guide](MIGRATION-1.0.md).
