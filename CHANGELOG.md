@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 — 2026-11-04
+
+- `IntentRequest.EnabledInstallments` (`enabledInstallments`): the installment counts the hosted form may offer for one payment (`[]int{1}` = single payment only). It only narrows the panel settings, the card and the platform maximum; nil means no restriction. `CreateIntent` returns `ErrConfiguration` before any request for an empty list, a count outside 1–36, a duplicate or a list without 1, and sends the list in ascending order without changing the caller's slice.
+
 ## 1.0.0 — 2026-11-01
 
 - Reject explicit null capture/refund amounts; full remaining operations use omission or the dedicated API described in MIGRATION-1.0.md.

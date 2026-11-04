@@ -32,7 +32,7 @@ response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
 
 `lunixi` import yolu `github.com/Lunixi-Payment/lunixi-go` şeklindedir. İstemciyi her merchant anahtarı için bir kez oluşturup paylaşın. SDK Ed25519 imzasını, token önbelleğini ve eşzamanlı yenilemeyi yönetir. Özel anahtar sunucuda kalır; PKCS8 PEM / base64 DER / base64 Ed25519 seed kabul edilir. TEST/LIVE ortamını merchant anahtarı belirler. BaseURL güvenilir HTTPS kökeni olmalıdır; yönlendirmeler izlenmez.
 
-`Amount` ve sepet `Price` alanları kanonik alt birim string değeridir: `"10050"` = 100,50 TRY. Sepet toplamı `Amount` ile aynı olmalıdır. Kaldırılmış kök alanlar `price`, `paidPrice`, `autoCapture` gönderilmez. Taksit ve vade farkını Lunixi formu yönetir. Token yalnız ilgili siparişin yetkili müşterisine `Cache-Control: no-store` ile verilir; loglanmaz. PAN/CVV bu örneklere girmez.
+`Amount` ve sepet `Price` alanları kanonik alt birim string değeridir: `"10050"` = 100,50 TRY. Sepet toplamı `Amount` ile aynı olmalıdır. Kaldırılmış kök alanlar `price`, `paidPrice`, `autoCapture` gönderilmez. Taksit ve vade farkını Lunixi formu yönetir; `EnabledInstallments` bu ödeme için formun sunacağı taksit sayılarını yalnızca daraltır (ör. en fazla 3 taksit için `[]int{1, 2, 3}`, yalnız tek çekim için `[]int{1}`). Form, panel ayarlarınızın, kartın ve platform üst sınırının da izin verdiği sayıları gösterir; nil kısıt yok demektir. Sayılar 1–36 arası, tekrarsız olmalı ve 1'i içermelidir; aksi hâlde `CreateIntent` istek göndermeden `ErrConfiguration` döner. Liste artan sırada gönderilir. Token yalnız ilgili siparişin yetkili müşterisine `Cache-Control: no-store` ile verilir; loglanmaz. PAN/CVV bu örneklere girmez.
 
 ## Kapsam
 

@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -59,8 +60,9 @@ type Address struct {
 }
 
 // IntentRequest creates a checkout form token. Amount is the basket total
-// before a provider-calculated installment fee. Installments are selected in
-// the shared form, not prescribed in the intent request.
+// before a provider-calculated installment fee. The buyer selects the
+// installment in the shared form; EnabledInstallments can only narrow the
+// counts the form offers.
 type IntentRequest struct {
 	Amount          string         `json:"amount"`
 	Currency        string         `json:"currency"`
@@ -82,7 +84,19 @@ type IntentRequest struct {
 	PaymentGroup    string         `json:"paymentGroup,omitempty"`
 	Force3D         *bool          `json:"force3D,omitempty"`
 	Settings        map[string]any `json:"settings,omitempty"`
+	// EnabledInstallments lists the installment counts the hosted form may
+	// offer for this payment, e.g. []int{1, 2, 3}; []int{1} allows a single
+	// payment only. The form shows only the counts also allowed by the panel
+	// settings, the card and the platform maximum. Nil means no restriction.
+	// Integers 1–36, no duplicates, 1 included; sent in ascending order.
+	EnabledInstallments []int `json:"enabledInstallments,omitempty"`
 }
+
+// Bounds of an EnabledInstallments entry.
+const (
+	MinEnabledInstallment = 1
+	MaxEnabledInstallment = 36
+)
 
 func (r IntentRequest) validate() error {
 	if !positiveMoney(r.Amount) {
@@ -98,6 +112,9 @@ func (r IntentRequest) validate() error {
 	}
 	if strings.TrimSpace(r.OrderID) == "" || len(r.OrderID) > 200 {
 		return invalid("orderId")
+	}
+	if e := validateEnabledInstallments(r.EnabledInstallments); e != nil {
+		return e
 	}
 	u, e := url.Parse(r.CallbackURL)
 	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
@@ -117,6 +134,32 @@ func (r IntentRequest) validate() error {
 		if total != moneyInteger(r.Amount) {
 			return invalid("basket total must equal amount")
 		}
+	}
+	return nil
+}
+
+// validateEnabledInstallments accepts nil (no restriction) or a non-empty list
+// of distinct counts from 1 to 36 that contains 1. A duplicate is an error; it
+// is not removed.
+func validateEnabledInstallments(counts []int) error {
+	if counts == nil {
+		return nil
+	}
+	if len(counts) == 0 {
+		return invalid("enabledInstallments must not be empty; use nil for no restriction or []int{1} for a single payment only")
+	}
+	seen := make(map[int]bool, len(counts))
+	for _, count := range counts {
+		if count < MinEnabledInstallment || count > MaxEnabledInstallment {
+			return invalid("enabledInstallments values must be from 1 to 36")
+		}
+		if seen[count] {
+			return invalid("enabledInstallments has " + strconv.Itoa(count) + " more than once")
+		}
+		seen[count] = true
+	}
+	if !seen[MinEnabledInstallment] {
+		return invalid("enabledInstallments must contain 1")
 	}
 	return nil
 }
@@ -144,6 +187,9 @@ func (p *PaymentClient) CreateIntent(ctx context.Context, r IntentRequest, key s
 	}
 	if e := requireKey(key); e != nil {
 		return nil, e
+	}
+	if r.EnabledInstallments != nil {
+		r.EnabledInstallments = slices.Sorted(slices.Values(r.EnabledInstallments))
 	}
 	return p.client.Do(ctx, Request{Method: "POST", Path: "/api/v1/payments/intents", Body: r, IdempotencyKey: key})
 }
