@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0 — 2026-11-12
+
+- `BasketItem.ProductCategory` (`productCategory`): optional Lunixi product category code, used by payment methods with legal installment limits (e.g. shopping loan) and other platform features. Omitted when empty, so existing requests are unchanged; the API rejects unknown codes with HTTP 400. Codes are exported as `ProductCategory*` constants and `ProductCategories()`; the field stays a string because the dictionary only grows by appending.
+
 ## 1.1.0 — 2026-11-04
 
 - `IntentRequest.EnabledInstallments` (`enabledInstallments`): the installment counts the hosted form may offer for one payment (`[]int{1}` = single payment only). It only narrows the panel settings, the card and the platform maximum; nil means no restriction. `CreateIntent` returns `ErrConfiguration` before any request for an empty list, a count outside 1–36, a duplicate or a list without 1, and sends the list in ascending order without changing the caller's slice.

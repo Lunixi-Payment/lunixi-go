@@ -30,6 +30,11 @@ type BasketItem struct {
 	InsuranceData     map[string]any `json:"insuranceData,omitempty"`
 	InsuranceCategory string         `json:"insuranceCategory,omitempty"`
 	InsuranceTypes    []string       `json:"insuranceTypes,omitempty"`
+	// ProductCategory is the optional Lunixi product category code, one of
+	// the ProductCategory* constants. Payment methods with legal installment
+	// limits (e.g. shopping loan) and other platform features use it. Empty
+	// omits the field; an unknown code is rejected by the API.
+	ProductCategory string `json:"productCategory,omitempty"`
 }
 
 // Buyer holds the documented buyer details used by hosted checkout. Values
