@@ -49,3 +49,19 @@ targetRules = ["generic-api-key"]
 paths = ['''(?:^|/)webhook_test\.go$''']
 regexTarget = "line"
 regexes = ['''\A\s*\Qsecret := "whsec_previous_secret_1234567890"\E\s*\z'''] # gitleaks:allow
+
+[[allowlists]]
+description = "Synthetic UUID in the shared Physical POS idempotency-key cases only"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''(?:^|/)testdata/physical\-pos\-parity\.json$''']
+regexTarget = "secret"
+regexes = ['''\A7b0c6a1e\-2f8d\-4c55\-9a51\-3f0e8d1c2a90\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic idempotency value in an offline test only"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''(?:^|/)marketplace_test\.go$''']
+regexTarget = "secret"
+regexes = ['''\Amarketplace\-key\-0001\z''']

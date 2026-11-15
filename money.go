@@ -96,7 +96,7 @@ func validateMoneyValue(value any, response bool) error {
 			}
 			money := false
 			switch key {
-			case "amount", "amountMinor", "authorizedAmount", "availableBalance", "balanceMinor", "buyerTotalCharge", "cancelledPremiumAmount", "capturedAmount", "capturedAmountMinor", "chargeAmount", "collectedAmountMinor", "collectedPremiumAmount", "compensatedAmount", "disputedAmount", "feeTotal", "fixedFee", "inForcePremiumAmount", "insuranceValueAmount", "legAmount", "legsAmount", "lineTotalMinor", "maxAmount", "maxAmountMinor", "minAmount", "minAmountMinor", "nonRefundableAmount", "paidAmount", "paidPrice", "pendingBalance", "premiumAmount", "price", "refundAmount", "refundOpenPremiumAmount", "refundableAmount", "refundedAmount", "refundedAmountMinor", "refundedPremiumAmount", "requestedAmount", "reservedBalance", "sourceAmountMinor", "targetAmountMinor", "taxAmountMinor", "taxTotal", "totalAmount", "unitPriceMinor":
+			case "amount", "amountMinor", "authorizedAmount", "availableBalance", "availableMinor", "availableWithoutOverdraftMinor", "balanceAfterMinor", "balanceMinor", "blockedMinor", "overdraftAvailableMinor", "sourceBalanceAfterMinor", "targetBalanceAfterMinor", "buyerTotalCharge", "cancelledPremiumAmount", "capturedAmount", "capturedAmountMinor", "chargeAmount", "collectedAmountMinor", "collectedPremiumAmount", "compensatedAmount", "disputedAmount", "feeTotal", "fixedFee", "inForcePremiumAmount", "insuranceValueAmount", "legAmount", "legsAmount", "lineTotalMinor", "maxAmount", "maxAmountMinor", "minAmount", "minAmountMinor", "nonRefundableAmount", "paidAmount", "paidPrice", "pendingBalance", "premiumAmount", "price", "refundAmount", "refundOpenPremiumAmount", "refundableAmount", "refundedAmount", "refundedAmountMinor", "refundedPremiumAmount", "requestedAmount", "reservedBalance", "sourceAmountMinor", "targetAmountMinor", "taxAmountMinor", "taxTotal", "totalAmount", "unitPriceMinor":
 				money = true
 			}
 			if money {
@@ -106,7 +106,7 @@ func validateMoneyValue(value any, response bool) error {
 				}
 			} else {
 				switch key {
-				case "data", "details", "items", "rows", "results", "payments", "operations", "balances", "wallets", "legs", "aggregate", "refund", "refunds", "totals", "charge", "fees", "fee", "balance", "splits", "sellers", "basketItems", "promissoryNote", "schedule", "notes", "lines", "offers", "policies", "reconciliation", "quotes", "payment", "transactions", "accounts", "settlements", "payouts", "limits":
+				case "data", "details", "items", "rows", "results", "payments", "operations", "balances", "wallets", "legs", "aggregate", "refund", "refunds", "totals", "charge", "fees", "fee", "balance", "splits", "sellers", "basketItems", "promissoryNote", "schedule", "notes", "lines", "offers", "policies", "reconciliation", "quotes", "payment", "transactions", "accounts", "settlements", "payouts", "limits", "options", "quote":
 					if err := validateMoneyValue(entry, response); err != nil {
 						return err
 					}

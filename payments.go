@@ -269,6 +269,12 @@ func (p *PaymentClient) mutation(ctx context.Context, action, id string, amount 
 // Split validates the documented split amount/leg contract and starts or
 // continues it. Supply the same body and key for every continuation. Pending
 // split states can be returned on HTTP 400 and remain explicitly unpaid.
+//
+// A card leg (paymentMethod empty or CARD) carries no method block. A non-card
+// leg is a mobileBilling, wallet or promissoryNote method (SplitLegBlockFields)
+// with exactly its own block, including providerCode, and no card fields;
+// MEAL_CARD, OPEN_BANKING, SHOPPING_LOAN and BANK_TRANSFER cannot be legs. A
+// promissory-note leg gives noteCount, not a schedule.
 func (p *PaymentClient) Split(ctx context.Context, body map[string]any, key string) (*Response, error) {
 	if e := requireKey(key); e != nil {
 		return nil, e
@@ -297,6 +303,9 @@ func (p *PaymentClient) Split(ctx context.Context, body map[string]any, key stri
 	}
 	if total != moneyInteger(request.TotalAmount) {
 		return nil, invalid("split amount mismatch")
+	}
+	if e = validateSplitLegs(raw); e != nil {
+		return nil, e
 	}
 	return p.client.Do(ctx, Request{Method: "POST", Path: "/api/v1/payments/split", Body: body, IdempotencyKey: key})
 }
@@ -334,6 +343,9 @@ func (p *PaymentClient) RefundSplit(ctx context.Context, id string, amount strin
 var optionalOperationAmountRoute = regexp.MustCompile(`^/api/v1/payments/(?:split/)?[^/]+/(?:capture|refund)$`)
 
 func validatePaymentBody(path string, body []byte) error {
+	if confirmRoute.MatchString(path) {
+		return validateConfirmBody(body)
+	}
 	if optionalOperationAmountRoute.MatchString(path) && len(body) > 0 {
 		var object map[string]json.RawMessage
 		if json.Unmarshal(body, &object) != nil || object == nil {
@@ -362,6 +374,9 @@ func validatePaymentBody(path string, body []byte) error {
 	var amount string
 	if json.Unmarshal(object["amount"], &amount) != nil || !positiveMoney(amount) {
 		return invalid("amount must be positive integer minor units")
+	}
+	if path == directMethodPaymentPath {
+		return validateDirectMethodPayment(body)
 	}
 	return nil
 }

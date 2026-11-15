@@ -21,19 +21,51 @@ var safeCode = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 
 // Client is safe for concurrent use. Create one client per merchant key.
 type Client struct {
-	baseURL     string
-	keyID       string
-	key         ed25519.PrivateKey
-	http        *http.Client
-	now         func() time.Time
-	maxRetries  int
-	maxResponse int64
-	tokenMu     sync.Mutex
-	token       string
-	tokenExpiry time.Time
-	refresh     chan struct{}
-	Payments    *PaymentClient
-	Fraud       *FraudClient
+	baseURL      string
+	keyID        string
+	key          ed25519.PrivateKey
+	http         *http.Client
+	now          func() time.Time
+	maxRetries   int
+	maxResponse  int64
+	tokenMu      sync.Mutex
+	token        string
+	tokenExpiry  time.Time
+	refresh      chan struct{}
+	Payments     *PaymentClient
+	PaymentLinks *PaymentLinkClient
+	Fraud        *FraudClient
+	Reference    *ReferenceClient
+	// PhysicalPos starts and reverses card payments on your devices and
+	// reads payments, transactions, reports and end-of-day results.
+	PhysicalPos *PhysicalPosClient
+	// PhysicalPosManagement manages stores, registers, terminals, devices,
+	// device keys and end-of-day policies.
+	PhysicalPosManagement *PhysicalPosManagementClient
+	// Wallet is the merchant surface of the closed-loop wallet: end users,
+	// transfers, withdrawals, top-ups, payments, QR codes and bulk payouts.
+	Wallet *WalletClient
+	// BankConnect reads your connected bank accounts, balances and
+	// transactions, and sends transfers and currency exchange orders.
+	BankConnect *BankConnectClient
+	// Sanction screens names, wallets, accounts and transactions and runs
+	// ongoing monitoring.
+	Sanction *SanctionClient
+	// Insurance offers, sells and services insurance and submits leads.
+	Insurance *InsuranceClient
+	// Subscriptions bills customers on plans: subscriptions, plans,
+	// customers, saved cards, invoices, the customer portal, catalog
+	// products, features, add-ons and metered usage.
+	Subscriptions *SubscriptionsClient
+	// Kyc runs KYC, KYB and evidence sessions and reads your KYC policy and
+	// webhook deliveries.
+	Kyc *KycClient
+	// Identity reads device and account-linking signals of the browser
+	// fingerprint SDK.
+	Identity *IdentityClient
+	// Marketplace splits charges across sub-dealers and manages the
+	// sub-dealers, commissions, payouts and the audit log.
+	Marketplace *MarketplaceClient
 }
 
 // New validates configuration without making a network request.
@@ -61,12 +93,25 @@ func New(config Config) (*Client, error) {
 	}
 	c := &Client{baseURL: strings.TrimSuffix(u.String(), "/"), keyID: config.KeyID, key: key, http: &hc, now: now, maxRetries: config.MaxRetries, maxResponse: max, refresh: make(chan struct{}, 1)}
 	c.Payments = &PaymentClient{client: c}
+	c.PaymentLinks = &PaymentLinkClient{client: c}
 	c.Fraud = &FraudClient{client: c}
+	c.Reference = &ReferenceClient{client: c}
+	c.PhysicalPos = &PhysicalPosClient{client: c}
+	c.PhysicalPosManagement = &PhysicalPosManagementClient{client: c}
+	c.Wallet = newWalletClient(c)
+	c.BankConnect = newBankConnectClient(c)
+	c.Sanction = &SanctionClient{client: c}
+	c.Insurance = &InsuranceClient{client: c}
+	c.Subscriptions = newSubscriptionsClient(c)
+	c.Kyc = &KycClient{client: c}
+	c.Identity = &IdentityClient{client: c}
+	c.Marketplace = &MarketplaceClient{client: c}
 	return c, nil
 }
 
 // Request is a signed merchant API request. Path must be an unescaped path
-// under /api/v1/; use Query for query parameters. A stable IdempotencyKey is
+// under /api/v1/ (or under /api/panel/v1/subscriptions/portal/, the customer
+// portal links of subscriptions); use Query for query parameters. A stable IdempotencyKey is
 // required by financial mutation helpers and controls safe automatic retries.
 type Request struct {
 	Method         string
@@ -87,6 +132,7 @@ type Response struct {
 	PageInfo    json.RawMessage
 	ContentType string
 	Bytes       []byte
+	retryAfter  string
 }
 
 // DecodeData decodes data without converting integer amounts to float64. A
@@ -101,6 +147,35 @@ func (r *Response) DecodeData(target any) error {
 // as the high-level clients. It does not invent service-specific validation;
 // callers using this escape hatch must follow the endpoint's public schema.
 func (c *Client) Do(ctx context.Context, in Request) (*Response, error) {
+	return c.do(ctx, in, "")
+}
+
+// do sends a request. A non-empty binaryAccept is sent as the Accept header
+// and a 2xx body is returned in Response.Bytes without JSON decoding (PDF
+// documents); error answers are still read as the JSON envelope.
+func (c *Client) do(ctx context.Context, in Request, binaryAccept string) (*Response, error) {
+	return c.send(ctx, in, sendOptions{accept: binaryAccept})
+}
+
+// sendOptions are transport switches of the internal clients.
+type sendOptions struct {
+	// accept is a binary Accept header (see do).
+	accept string
+	// noRetry turns off the retries after a transport error, 429 or 5xx;
+	// physical POS payment writes run their own attempts. The single
+	// authentication refresh after a 401 is kept.
+	noRetry bool
+	// unsigned sends the access token without the per-request signature
+	// (the bearer-only routes of the subscription, KYC, identity and
+	// marketplace dealer tables).
+	unsigned bool
+	// deleteBody lets a DELETE carry a body (the subscription card
+	// deactivation and portal link revocation reasons).
+	deleteBody bool
+}
+
+func (c *Client) send(ctx context.Context, in Request, opts sendOptions) (*Response, error) {
+	binaryAccept := opts.accept
 	method := strings.ToUpper(in.Method)
 	if method != "GET" && method != "POST" && method != "PUT" && method != "PATCH" && method != "DELETE" {
 		return nil, invalid("HTTP method")
@@ -108,11 +183,16 @@ func (c *Client) Do(ctx context.Context, in Request) (*Response, error) {
 	if err := validPath(in.Path); err != nil {
 		return nil, err
 	}
-	if in.IdempotencyKey != "" && !validIdempotency(in.IdempotencyKey) {
-		return nil, invalid("IdempotencyKey must be 16–128 printable ASCII characters")
+	if in.IdempotencyKey != "" {
+		if err := validIdempotencyFor(in.Path, in.IdempotencyKey); err != nil {
+			return nil, err
+		}
 	}
-	if (method == "GET" || method == "DELETE") && in.Body != nil {
+	if (method == "GET" || (method == "DELETE" && !opts.deleteBody)) && in.Body != nil {
 		return nil, invalid("body is not allowed for this method")
+	}
+	if in.Path == directMethodPaymentPath && in.IdempotencyKey == "" {
+		return nil, invalid("stable IdempotencyKey required for a direct method payment")
 	}
 	var body []byte
 	var err error
@@ -147,7 +227,7 @@ func (c *Client) Do(ctx context.Context, in Request) (*Response, error) {
 		if e != nil {
 			return nil, e
 		}
-		r, e := c.exchange(ctx, method, path, body, in.IdempotencyKey, token)
+		r, e := c.exchange(ctx, method, path, body, in.IdempotencyKey, token, binaryAccept, !opts.unsigned)
 		if e == nil && r.StatusCode >= 200 && r.StatusCode < 300 {
 			return r, nil
 		}
@@ -157,11 +237,11 @@ func (c *Client) Do(ctx context.Context, in Request) (*Response, error) {
 			// A refreshed authentication retry uses the same body and key.
 			continue
 		}
-		if e == nil && splitPending(in.Path, r) {
+		if e == nil && method == "POST" && splitPending(in.Path, r) {
 			return r, nil
 		}
 		retry := e != nil || r.StatusCode == 429 || r.StatusCode == 500 || r.StatusCode == 502 || r.StatusCode == 503 || r.StatusCode == 504
-		if safeRetry && retry && attempt < c.maxRetries {
+		if safeRetry && retry && !opts.noRetry && attempt < c.maxRetries {
 			delay := time.Duration(100*(1<<uint(attempt))) * time.Millisecond
 			timer := time.NewTimer(delay)
 			select {
@@ -180,7 +260,7 @@ func (c *Client) Do(ctx context.Context, in Request) (*Response, error) {
 }
 
 func validPath(path string) error {
-	if !strings.HasPrefix(path, "/api/v1/") || len(path) > 4096 || strings.ContainsAny(path, "%?#\\\r\n\t") || strings.Contains(path, "//") || (path == "/api/v1/auth" || strings.HasPrefix(path, "/api/v1/auth/")) {
+	if !(strings.HasPrefix(path, "/api/v1/") || strings.HasPrefix(path, subscriptionPortalPanelBase+"/")) || len(path) > 4096 || strings.ContainsAny(path, "%?#\\\r\n\t") || strings.Contains(path, "//") || (path == "/api/v1/auth" || strings.HasPrefix(path, "/api/v1/auth/")) {
 		return invalid("merchant API path")
 	}
 	for _, segment := range strings.Split(path, "/") {
@@ -198,29 +278,81 @@ func validPath(path string) error {
 
 func validIdempotency(key string) bool { return len(key) >= 16 && safeHeader(key, 128) }
 
-func (c *Client) exchange(ctx context.Context, method, path string, body []byte, idem, token string) (*Response, error) {
+// validIdempotencyFor applies the key format of the route: payment links,
+// physical POS, bank connect and insurance accept 8–200 printable ASCII
+// characters, the wallet 1–128, subscriptions, KYC, identity and the
+// marketplace dealer routes 1–200, every other route 16–128.
+func validIdempotencyFor(path, key string) error {
+	if routeTableKeyRoute(path) {
+		if !validRouteTableKey(key) {
+			return invalid("IdempotencyKey must be 1–200 printable ASCII characters without spaces for subscriptions, KYC, identity and marketplace dealers")
+		}
+		return nil
+	}
+	if bankConnectRoute(path) || insuranceRoute(path) {
+		if !validPrintableKey(key) {
+			return invalid("IdempotencyKey must be 8–200 printable ASCII characters without spaces for bank connect and insurance")
+		}
+		return nil
+	}
+	if walletRoute(path) {
+		if !validWalletIdempotency(key) {
+			return invalid("IdempotencyKey must be 1–128 printable ASCII characters without spaces for the wallet")
+		}
+		return nil
+	}
+	if paymentLinkRoute(path) {
+		if !validPaymentLinkIdempotency(key) {
+			return invalid("IdempotencyKey must be 8–200 printable ASCII characters without spaces for payment links")
+		}
+		return nil
+	}
+	if physicalPosRoute(path) {
+		if !validPhysicalPosIdempotency(key) {
+			return invalid("IdempotencyKey must be 8–200 printable ASCII characters without spaces for physical POS")
+		}
+		return nil
+	}
+	if !validIdempotency(key) {
+		return invalid("IdempotencyKey must be 16–128 printable ASCII characters")
+	}
+	return nil
+}
+
+// exchange sends one HTTP request. signed adds the per-request Ed25519
+// signature (X-Key-Id, X-Date, X-Nonce, X-Signature and, with a body,
+// Digest); without it only the access token authenticates the call.
+func (c *Client) exchange(ctx context.Context, method, path string, body []byte, idem, token, binaryAccept string, signed bool) (*Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, invalid("request")
 	}
-	nonceBytes := make([]byte, 16)
-	if _, err = rand.Read(nonceBytes); err != nil {
-		return nil, &APIError{Code: "RANDOM_SOURCE_UNAVAILABLE"}
-	}
-	nonce := hex.EncodeToString(nonceBytes)
-	date := c.now().UTC().Format("2006-01-02T15:04:05Z")
-	digest := ""
 	if body != nil {
-		digest = Digest(body)
-		req.Header.Set("Digest", digest)
 		req.Header.Set("Content-Type", "application/json")
 	}
-	req.Header.Set("Accept", "application/json")
+	if signed {
+		nonceBytes := make([]byte, 16)
+		if _, err = rand.Read(nonceBytes); err != nil {
+			return nil, &APIError{Code: "RANDOM_SOURCE_UNAVAILABLE"}
+		}
+		nonce := hex.EncodeToString(nonceBytes)
+		date := c.now().UTC().Format("2006-01-02T15:04:05Z")
+		digest := ""
+		if body != nil {
+			digest = Digest(body)
+			req.Header.Set("Digest", digest)
+		}
+		req.Header.Set("X-Key-Id", c.keyID)
+		req.Header.Set("X-Date", date)
+		req.Header.Set("X-Nonce", nonce)
+		req.Header.Set("X-Signature", base64.StdEncoding.EncodeToString(ed25519.Sign(c.key, []byte(CanonicalRequest(method, path, date, nonce, digest)))))
+	}
+	accept := "application/json"
+	if binaryAccept != "" {
+		accept = binaryAccept
+	}
+	req.Header.Set("Accept", accept)
 	req.Header.Set("User-Agent", "lunixi-go/"+Version)
-	req.Header.Set("X-Key-Id", c.keyID)
-	req.Header.Set("X-Date", date)
-	req.Header.Set("X-Nonce", nonce)
-	req.Header.Set("X-Signature", base64.StdEncoding.EncodeToString(ed25519.Sign(c.key, []byte(CanonicalRequest(method, path, date, nonce, digest)))))
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -245,6 +377,13 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	r := &Response{StatusCode: response.StatusCode, ContentType: response.Header.Get("Content-Type")}
 	if value := response.Header.Get("X-Request-Id"); safeHeader(value, 200) {
 		r.RequestID = value
+	}
+	if value := response.Header.Get("Retry-After"); safeHeader(value, 64) {
+		r.retryAfter = value
+	}
+	if binaryAccept != "" && r.StatusCode >= 200 && r.StatusCode < 300 {
+		r.Bytes = raw
+		return r, nil
 	}
 	if strings.Contains(strings.ToLower(r.ContentType), "json") || json.Valid(raw) {
 		if !json.Valid(raw) {
@@ -303,7 +442,7 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	if token != "" && c.now().Before(expiry) {
 		return token, nil
 	}
-	r, err := c.exchange(ctx, "POST", "/api/v1/auth/token", nil, "", "")
+	r, err := c.exchange(ctx, "POST", "/api/v1/auth/token", nil, "", "", "", true)
 	if err != nil {
 		return "", err
 	}
