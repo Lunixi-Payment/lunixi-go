@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	lunixi "github.com/Lunixi-Payment/lunixi-go"
+	lunixi "github.com/Lunixi-Payment/lunixi-go/v2"
 )
 
 const testSecret = "whsec_synthetic_test_secret_123456789"

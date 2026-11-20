@@ -21,7 +21,8 @@ type MarketplaceSeller struct {
 
 // MarketplaceIntentRequest is the body of CreateMarketplaceIntent
 // (POST /payments/marketplace/intents): the checkout intent fields plus the
-// sellers and their shares.
+// sellers and their shares. The order details of IntentRequest are required
+// (buyer IP optional).
 type MarketplaceIntentRequest struct {
 	IntentRequest
 	Sellers           []MarketplaceSeller `json:"sellers"`
@@ -29,7 +30,7 @@ type MarketplaceIntentRequest struct {
 }
 
 func (r MarketplaceIntentRequest) validate() error {
-	if e := r.IntentRequest.validate(); e != nil {
+	if e := r.IntentRequest.check("A marketplace payment intent"); e != nil {
 		return e
 	}
 	if r.MultiSellerPolicy != "" {

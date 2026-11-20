@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	lunixi "github.com/Lunixi-Payment/lunixi-go"
+	lunixi "github.com/Lunixi-Payment/lunixi-go/v2"
 )
 
 func run() error {
@@ -28,10 +28,22 @@ func run() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	address := lunixi.Address{ContactName: "Ada Yilmaz", Address: "Example Street 1", City: "Istanbul", Country: "Turkey", ZipCode: "34662"}
 	response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
 		Amount: "10050", Currency: "TRY", OrderID: orderID,
 		CallbackURL: "https://merchant.example/payment/return",
-		BasketItems: []lunixi.BasketItem{{ID: "basket-1", Name: "Example product", ItemType: "PHYSICAL", Price: "10050"}},
+		// Buyer, billing address and basket are required; a PHYSICAL item also
+		// needs the shipping address. The buyer IP is optional on an intent:
+		// the Lunixi form takes it from the browser. Read these values from
+		// your own order record.
+		Buyer: &lunixi.Buyer{
+			Name: "Ada", Surname: "Yilmaz", IdentityNumber: "11111111111",
+			Email: "ada@example.com", GSMNumber: "+905000000000",
+			City: "Istanbul", Country: "Turkey", ZipCode: "34732",
+		},
+		BillingAddress:  &address,
+		ShippingAddress: &address,
+		BasketItems:     []lunixi.BasketItem{{ID: "basket-1", Name: "Example product", Category1: "Goods", ItemType: "PHYSICAL", Price: "10050"}},
 	}, attemptKey)
 	if err != nil {
 		return err

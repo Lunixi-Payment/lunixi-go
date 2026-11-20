@@ -26,9 +26,9 @@ func marketplaceChargeRequest() map[string]any {
 		"currency":       "TRY",
 		"orderId":        "ORD-MP-1",
 		"card":           map[string]any{"cardHolderName": "Ada Yilmaz", "cardNumber": "5400000000000004", "expireMonth": "12", "expireYear": "28", "cvcNumber": "123"},
-		"buyer":          &Buyer{Name: "Ada", Surname: "Yilmaz"},
-		"billingAddress": &Address{City: "Istanbul"},
-		"basketItems":    []BasketItem{{ID: "SKU-1", Name: "Demo", ItemType: "PHYSICAL", Price: "10050"}},
+		"buyer":          testBuyer(),
+		"billingAddress": testAddress(),
+		"basketItems":    []BasketItem{{ID: "SKU-1", Name: "Demo", Category1: "Services", ItemType: "VIRTUAL", Price: "10050"}},
 	}
 }
 

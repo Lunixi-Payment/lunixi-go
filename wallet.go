@@ -324,6 +324,12 @@ type WalletTopups struct{ wallet *WalletClient }
 // StartCard starts a card top-up. Render checkoutFormContent (or follow
 // redirectUrl / threeDsHtml); the wallet is credited when the payment
 // completes (wallet.topup.completed). The key is required.
+//
+// The payment provider requires the buyer and the billing address (buyer
+// with BuyerRequiredFields, ip being the user's browser IP; billingAddress
+// with AddressRequiredFields); shippingAddress is optional. Missing paths
+// fail with ErrConfiguration before sending; the gateway answers them with
+// 400 OrderFieldErrorCodeFieldRequired and the paths in details.fields.
 func (t *WalletTopups) StartCard(ctx context.Context, request map[string]any, idempotencyKey string) (json.RawMessage, error) {
 	return t.wallet.data(ctx, "startCardTopup", nil, nil, orEmpty(request), idempotencyKey)
 }

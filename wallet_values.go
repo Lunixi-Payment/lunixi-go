@@ -137,7 +137,7 @@ var walletRoutes = map[string]Route{
 	"getOperationReceipt": {Method: "GET", Path: "/api/v1/wallet/operations/:operationId/receipt"},
 
 	// Top-ups
-	"startCardTopup": {Method: "POST", Path: "/api/v1/wallet/topups/card", IdempotencyKey: true, Required: []string{"creditWalletAccountId", "amount", "currency"}, Optional: []string{"fundingMerchantId", "savedCardUserKey", "savedCardToken", "savedConsumerToken", "savedPublicCardStorageToken", "returnUrl"}},
+	"startCardTopup": {Method: "POST", Path: "/api/v1/wallet/topups/card", IdempotencyKey: true, Required: []string{"creditWalletAccountId", "amount", "currency", "buyer", "billingAddress"}, Optional: []string{"fundingMerchantId", "savedCardUserKey", "savedCardToken", "savedConsumerToken", "savedPublicCardStorageToken", "returnUrl", "shippingAddress"}},
 	"getTopup":       {Method: "GET", Path: "/api/v1/wallet/topups/:operationId"},
 	"refundTopup":    {Method: "POST", Path: "/api/v1/wallet/topups/:operationId/refund", Required: []string{"reason", "requesterPrincipal", "approverPrincipal"}},
 	"agentTopup":     {Method: "POST", Path: "/api/v1/wallet/agent-topups", IdempotencyKey: true, Required: []string{"agentId", "creditWalletAccountId", "amount", "currency"}},

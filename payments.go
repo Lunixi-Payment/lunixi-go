@@ -18,8 +18,10 @@ var resourceID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$`)
 type PaymentClient struct{ client *Client }
 
 // BasketItem is a checkout basket line; Price is an integer minor-unit line
-// total, not a per-unit float. Additional insurance data follows the gateway
-// schema and is passed without guessing insurance-specific field rules.
+// total, not a per-unit float. ID, Name, Category1, ItemType (PHYSICAL or
+// VIRTUAL) and Price are required (BasketItemRequiredFields). Additional
+// insurance data follows the gateway schema and is passed without guessing
+// insurance-specific field rules.
 type BasketItem struct {
 	ID                string         `json:"id"`
 	Name              string         `json:"name"`
@@ -37,8 +39,11 @@ type BasketItem struct {
 	ProductCategory string `json:"productCategory,omitempty"`
 }
 
-// Buyer holds the documented buyer details used by hosted checkout. Values
-// are sent to Lunixi only and must never be copied to application logs.
+// Buyer is the buyer of an order. The payment endpoints require
+// BuyerRequiredFields (see MissingOrderDetails); IP is the buyer's browser IP
+// and may be left out on a checkout intent only, where the Lunixi form takes
+// it from the browser. Email is ASCII. Values are sent to Lunixi only and must
+// never be copied to application logs.
 type Buyer struct {
 	ID                  string `json:"id,omitempty"`
 	Name                string `json:"name,omitempty"`
@@ -55,7 +60,8 @@ type Buyer struct {
 	RegistrationAddress string `json:"registrationAddress,omitempty"`
 }
 
-// Address is a billing or shipping address accepted by the payment API.
+// Address is a billing or shipping address accepted by the payment API;
+// AddressRequiredFields must be non-empty.
 type Address struct {
 	ContactName string `json:"contactName,omitempty"`
 	Address     string `json:"address,omitempty"`
@@ -68,6 +74,11 @@ type Address struct {
 // before a provider-calculated installment fee. The buyer selects the
 // installment in the shared form; EnabledInstallments can only narrow the
 // counts the form offers.
+//
+// The order details are required: Buyer (IP may be left out here, the Lunixi
+// form takes it from the browser), BillingAddress and at least one
+// BasketItems entry whose Price values add up to Amount; ShippingAddress when
+// an item is PHYSICAL. CreateIntent names the missing paths before sending.
 type IntentRequest struct {
 	Amount          string         `json:"amount"`
 	Currency        string         `json:"currency"`
@@ -103,7 +114,11 @@ const (
 	MaxEnabledInstallment = 36
 )
 
-func (r IntentRequest) validate() error {
+func (r IntentRequest) validate() error { return r.check("A payment intent") }
+
+// check applies the intent rules; label names the request in an order
+// details error.
+func (r IntentRequest) check(label string) error {
 	if !positiveMoney(r.Amount) {
 		return invalid("amount must be positive integer minor units within JSON safe range")
 	}
@@ -124,6 +139,9 @@ func (r IntentRequest) validate() error {
 	u, e := url.Parse(r.CallbackURL)
 	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
 		return invalid("callbackUrl must use HTTPS")
+	}
+	if e := requireOrderDetailsOf(r, label, OrderDetailsOptions{CheckoutIntent: true}); e != nil {
+		return e
 	}
 	if len(r.BasketItems) > 0 {
 		var total int64
@@ -186,6 +204,8 @@ func requireKey(key string) error {
 
 // CreateIntent creates a hosted checkout session. Persist key per payment
 // attempt before calling; reuse it after a timeout instead of charging again.
+// Incomplete order details fail with ErrConfiguration naming the missing
+// paths (buyer.email, basketItems.0.category1, shippingAddress …).
 func (p *PaymentClient) CreateIntent(ctx context.Context, r IntentRequest, key string) (*Response, error) {
 	if e := r.validate(); e != nil {
 		return nil, e
@@ -275,6 +295,11 @@ func (p *PaymentClient) mutation(ctx context.Context, action, id string, amount 
 // with exactly its own block, including providerCode, and no card fields;
 // MEAL_CARD, OPEN_BANKING, SHOPPING_LOAN and BANK_TRANSFER cannot be legs. A
 // promissory-note leg gives noteCount, not a schedule.
+//
+// The body takes SplitPaymentFields only. The order details are required:
+// buyer, billingAddress and at least one basketItems entry; shippingAddress
+// when an item is PHYSICAL. Missing paths fail with ErrConfiguration before
+// sending.
 func (p *PaymentClient) Split(ctx context.Context, body map[string]any, key string) (*Response, error) {
 	if e := requireKey(key); e != nil {
 		return nil, e

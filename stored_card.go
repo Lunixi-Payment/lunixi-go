@@ -14,12 +14,15 @@ const storedCardsPath = "/api/v1/payments/cards"
 // buyer. Card holds the gateway card fields (cardHolderName, cardNumber,
 // expireMonth, expireYear, cvcNumber, ...). Card values are sent to Lunixi
 // only; never log the request. CallbackURL receives the buyer after a 3D
-// Secure verification.
+// Secure verification. Buyer (the card holder, BuyerRequiredFields) and
+// BillingAddress are required; card storage takes no basket.
 type StoreCardRequest struct {
-	Card        map[string]any `json:"card"`
-	CardUserKey string         `json:"cardUserKey"`
-	CallbackURL string         `json:"callbackUrl"`
-	Currency    string         `json:"currency,omitempty"`
+	Card           map[string]any `json:"card"`
+	CardUserKey    string         `json:"cardUserKey"`
+	CallbackURL    string         `json:"callbackUrl"`
+	Currency       string         `json:"currency,omitempty"`
+	Buyer          *Buyer         `json:"buyer,omitempty"`
+	BillingAddress *Address       `json:"billingAddress,omitempty"`
 }
 
 func (r StoreCardRequest) body() (StoreCardRequest, error) {
@@ -40,6 +43,9 @@ func (r StoreCardRequest) body() (StoreCardRequest, error) {
 		}
 	}
 	r.Card = maps.Clone(r.Card)
+	if err = requireOrderDetailsOf(r, "Storing a card", OrderDetailsOptions{WithoutBasket: true}); err != nil {
+		return r, err
+	}
 	return r, nil
 }
 
@@ -59,7 +65,8 @@ func storedCardPath(storedCardToken string) (string, error) {
 }
 
 // StoreCard verifies and stores a card (POST /payments/cards). key is
-// required; reuse it when retrying the same request.
+// required; reuse it when retrying the same request. A missing buyer or
+// billing address field fails with ErrConfiguration naming its path.
 func (p *PaymentClient) StoreCard(ctx context.Context, request StoreCardRequest, key string) (*Response, error) {
 	body, err := request.body()
 	if err != nil {

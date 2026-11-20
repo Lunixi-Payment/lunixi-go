@@ -9,10 +9,13 @@ import (
 const testCardNumber = "5528790000000008"
 
 func storedCardRequest() StoreCardRequest {
+	buyer, billing := testBuyer(), testAddress()
 	return StoreCardRequest{
-		Card:        map[string]any{"cardHolderName": "Test Buyer", "cardNumber": testCardNumber, "expireMonth": "12", "expireYear": "2030", "cvcNumber": "123"},
-		CardUserKey: "buyer-42",
-		CallbackURL: "https://merchant.example/cards/return",
+		Card:           map[string]any{"cardHolderName": "Test Buyer", "cardNumber": testCardNumber, "expireMonth": "12", "expireYear": "2030", "cvcNumber": "123"},
+		CardUserKey:    "buyer-42",
+		CallbackURL:    "https://merchant.example/cards/return",
+		Buyer:          &buyer,
+		BillingAddress: &billing,
 	}
 }
 
@@ -32,6 +35,8 @@ func TestStoreCardRequiresKeyAndSendsBody(t *testing.T) {
 		"http callback":  func(r *StoreCardRequest) { r.CallbackURL = "http://merchant.example/return" },
 		"bad currency":   func(r *StoreCardRequest) { r.Currency = "LIRA" },
 		"empty callback": func(r *StoreCardRequest) { r.CallbackURL = "" },
+		"no buyer":       func(r *StoreCardRequest) { r.Buyer = nil },
+		"no billing":     func(r *StoreCardRequest) { r.BillingAddress = nil },
 	} {
 		bad := storedCardRequest()
 		mutate(&bad)

@@ -116,8 +116,9 @@ type PaymentLinkCustomField struct {
 	HelpText  string   `json:"helpText,omitempty"`
 }
 
-// PaymentLinkBuyerFields sets each buyer field to a BuyerFieldRequirement*
-// value; empty leaves the gateway default.
+// PaymentLinkBuyerFields sets each buyer field to
+// BuyerFieldRequirementRequired; empty leaves it out, which also means
+// REQUIRED. The link page always asks all five fields.
 type PaymentLinkBuyerFields struct {
 	Name           string `json:"name,omitempty"`
 	Email          string `json:"email,omitempty"`

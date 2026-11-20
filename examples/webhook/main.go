@@ -12,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	lunixi "github.com/Lunixi-Payment/lunixi-go"
+	lunixi "github.com/Lunixi-Payment/lunixi-go/v2"
 	_ "github.com/mattn/go-sqlite3"
 )
 

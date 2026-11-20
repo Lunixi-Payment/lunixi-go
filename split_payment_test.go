@@ -10,7 +10,7 @@ func splitBody(legs ...map[string]any) map[string]any {
 	for i, leg := range legs {
 		list[i] = leg
 	}
-	return map[string]any{"totalAmount": "1000", "currency": "TRY", "ownerRef": "customer-1", "legs": list}
+	return withOrder(map[string]any{"totalAmount": "1000", "currency": "TRY", "ownerRef": "customer-1", "legs": list}, "1000")
 }
 
 func TestSplitLegBlockRule(t *testing.T) {

@@ -213,6 +213,9 @@ func (c *Client) send(ctx context.Context, in Request, opts sendOptions) (*Respo
 	if err = validatePaymentBody(in.Path, body); err != nil {
 		return nil, err
 	}
+	if err = validateOrderDetailsBody(method, in.Path, body); err != nil {
+		return nil, err
+	}
 	path := in.Path
 	if len(in.Query) > 0 {
 		path += "?" + in.Query.Encode()

@@ -11,6 +11,13 @@ import (
 // routes under /api/panel/v1/subscriptions/portal. The values are the same
 // codes as the other Lunixi SDKs.
 
+// Errors of Customers.Upsert: a missing or invalid customer field
+// (details.field, details.reason, details.fields).
+const (
+	SubscriptionCustomerErrorCodeFieldRequired = "subscription.customer.field_required"
+	SubscriptionCustomerErrorCodeFieldInvalid  = "subscription.customer.field_invalid"
+)
+
 // Status of a subscription.
 const (
 	// SubscriptionStatusPending: startsAt is in the future.
@@ -208,7 +215,7 @@ var subscriptionRoutes = map[string]Route{
 	"plans.translations":      {Method: "GET", Path: subscriptionsBase + "/plans/:planId/translations"},
 	"plans.upsertTranslation": {Method: "PATCH", Path: subscriptionsBase + "/plans/:planId/translations/:locale", Free: true},
 
-	"customers.upsert":          {Method: "PUT", Path: subscriptionsBase + "/customers", OptionalIdempotencyKey: true, Required: []string{"externalId"}, Optional: []string{"email", "name", "phone", "locale", "metadata"}},
+	"customers.upsert":          {Method: "PUT", Path: subscriptionsBase + "/customers", OptionalIdempotencyKey: true, Required: []string{"externalId", "name", "surname", "email", "gsmNumber", "identityNumber", "billingAddress", "billingCity", "billingCountry", "billingZipCode"}, Optional: []string{"billingContactName", "shippingContactName", "shippingAddress", "shippingCity", "shippingCountry", "shippingZipCode"}},
 	"customers.get":             {Method: "GET", Path: subscriptionsBase + "/customers/:customerId"},
 	"customers.getByExternalId": {Method: "GET", Path: subscriptionsBase + "/customers/by-external/:externalId"},
 	"customers.list":            {Method: "GET", Path: subscriptionsBase + "/customers", Query: []string{"search", "includeArchived", "pageSize", "pageToken"}},

@@ -1,6 +1,6 @@
 # Lunixi Go SDK
 
-**1.0.0**, kanonik küçük birim string para sözleşmesini kullanır. [Geçiş rehberini](../MIGRATION-1.0.md) uygulayın; yayımlanan [v1.0.0 modülünü](https://github.com/Lunixi-Payment/lunixi-go/tree/v1.0.0) aşağıdaki komutla yükleyin. `go.sum` dosyasını saklayın ve modülü Go proxy/checksum veritabanıyla doğrulayın.
+**1.0.0**, kanonik küçük birim string para sözleşmesini kullanır. [Geçiş rehberini](../MIGRATION-1.0.md) uygulayın; yayımlanan [v2.0.0 modülünü](https://github.com/Lunixi-Payment/lunixi-go/tree/v2.0.0) (sürüm 2 ödeme uçlarında sipariş bilgilerini ister, import yolu `/v2` ile biter) aşağıdaki komutla yükleyin. `go.sum` dosyasını saklayın ve modülü Go proxy/checksum veritabanıyla doğrulayın.
 
 1.0.0 sürümü mağaza sitesi için somut bir sunum örneği ekler. **Varsayılan gömülü ödemedir**: yalnız resmi Lunixi bundle yüklenir ve mevcut form mount edilir; yöntem ve çoklu kart seçenekleri Lunixi panelinde kalır. İsteğe bağlı yönlendirme yalnız backend `paymentPageUrl` adresini, tam HTTPS `pay.lunixi.com/payment/` doğrulamasından sonra kullanır. Adresin token’ı gömülü token’dan farklı olabilir. Eksik adres gömülü ödemeyi engellemez; yönlendirme aynı deneme/anahtarla inceleme veya uzlaştırmada kalır. Tarayıcı token’ından adres üretmeyin. Formdan önce müşteri/sipariş sahipliğini ve yerel tarayıcı CSRF’yi doğrulayın; `Cache-Control: private, no-store` gönderin, mağazanın CSP nonce değerini koruyun; token, HTML ve yönlendirme adreslerini loglamayın. Genel yanıt verisi `paymentPageUrl` alanını korur (artık her ürünün tipli istemcisi vardır).
 
@@ -9,7 +9,7 @@
 Go 1.26+ sunucu uygulamaları için Lunixi istemcisidir. Çalışma zamanı bağımlılığı yoktur; `net/http`, Gin, Echo ve Fiber ile kullanılabilir.
 
 ```sh
-go get github.com/Lunixi-Payment/lunixi-go@v1.0.0
+go get github.com/Lunixi-Payment/lunixi-go/v2@v2.0.0
 ```
 
 ```go
@@ -24,15 +24,31 @@ if err != nil { return err }
 response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
     Amount: "10050", Currency: "TRY", OrderID: "ORD-1001",
     CallbackURL: "https://merchant.example/payment/return",
+    // Alıcı, fatura adresi ve sepet zorunludur; PHYSICAL kalemde teslimat adresi de
+    // gerekir. Değerleri siparişinizden alın, yer tutucu kullanmayın. Intent'te
+    // alıcı IP'si isteğe bağlıdır: Lunixi formu IP'yi tarayıcıdan alır.
+    Buyer: &lunixi.Buyer{
+        Name: "Ada", Surname: "Yılmaz", IdentityNumber: "11111111111",
+        Email: "ada@example.com", GSMNumber: "+905000000000",
+        City: "İstanbul", Country: "Türkiye", ZipCode: "34732",
+    },
+    BillingAddress: &lunixi.Address{
+        ContactName: "Ada Yılmaz", Address: "Örnek Sok. No: 1",
+        City: "İstanbul", Country: "Türkiye", ZipCode: "34662",
+    },
     BasketItems: []lunixi.BasketItem{
-        {ID:"line-1", Name:"Örnek ürün", ItemType:"PHYSICAL", Price:"10050"},
+        {ID: "line-1", Name: "Danışmanlık hizmeti", Category1: "Hizmet", ItemType: "VIRTUAL", Price: "10050"},
     },
 }, kayitliDenemeAnahtari)
 ```
 
-`lunixi` import yolu `github.com/Lunixi-Payment/lunixi-go` şeklindedir. İstemciyi her merchant anahtarı için bir kez oluşturup paylaşın. SDK Ed25519 imzasını, token önbelleğini ve eşzamanlı yenilemeyi yönetir. Merchant istekleri GET dahil imzalıdır. Abonelik, KYC, kimlik ve pazaryeri bayi rotaları, gateway bunları böyle doğruladığı için yalnız erişim token'ıyla gönderilir; pazaryeri bölünmüş tahsilatları imzalı kalır. Özel anahtar sunucuda kalır; PKCS8 PEM / base64 DER / base64 Ed25519 seed kabul edilir. TEST/LIVE ortamını merchant anahtarı belirler. BaseURL güvenilir HTTPS kökeni olmalıdır; yönlendirmeler izlenmez.
+`lunixi` import yolu `github.com/Lunixi-Payment/lunixi-go/v2` şeklindedir. İstemciyi her merchant anahtarı için bir kez oluşturup paylaşın. SDK Ed25519 imzasını, token önbelleğini ve eşzamanlı yenilemeyi yönetir. Merchant istekleri GET dahil imzalıdır. Abonelik, KYC, kimlik ve pazaryeri bayi rotaları, gateway bunları böyle doğruladığı için yalnız erişim token'ıyla gönderilir; pazaryeri bölünmüş tahsilatları imzalı kalır. Özel anahtar sunucuda kalır; PKCS8 PEM / base64 DER / base64 Ed25519 seed kabul edilir. TEST/LIVE ortamını merchant anahtarı belirler. BaseURL güvenilir HTTPS kökeni olmalıdır; yönlendirmeler izlenmez.
 
-`Amount` ve sepet `Price` alanları kanonik alt birim string değeridir: `"10050"` = 100,50 TRY. Sepet toplamı `Amount` ile aynı olmalıdır. Kaldırılmış kök alanlar `price`, `paidPrice`, `autoCapture` gönderilmez. Taksit ve vade farkını Lunixi formu yönetir; `EnabledInstallments` bu ödeme için formun sunacağı taksit sayılarını yalnızca daraltır (ör. en fazla 3 taksit için `[]int{1, 2, 3}`, yalnız tek çekim için `[]int{1}`). Form, panel ayarlarınızın, kartın ve platform üst sınırının da izin verdiği sayıları gösterir; nil kısıt yok demektir. Sayılar 1–36 arası, tekrarsız olmalı ve 1'i içermelidir; aksi hâlde `CreateIntent` istek göndermeden `ErrConfiguration` döner. Liste artan sırada gönderilir. `BasketItem.ProductCategory` (`productCategory`) isteğe bağlı Lunixi ürün kategorisidir; yasal taksit sınırı olan ödeme yöntemleri (ör. alışveriş kredisi) ve diğer platform özellikleri tarafından kullanılır. Değer için `ProductCategory*` sabitlerini kullanın (`ProductCategories()` bu sürümün bildiği kodları listeler). Boş bırakılırsa alan gönderilmez ve mevcut davranış korunur; bilinmeyen kod API tarafından HTTP 400 ile reddedilir. Sözlük yalnız sona ekleme ile büyür; alan bu yüzden düz string'dir. Token yalnız ilgili siparişin yetkili müşterisine `Cache-Control: no-store` ile verilir; loglanmaz. PAN/CVV bu örneklere girmez.
+`Amount` ve sepet `Price` alanları kanonik alt birim string değeridir: `"10050"` = 100,50 TRY. Sepet toplamı `Amount` ile aynı olmalıdır. Kaldırılmış kök alanlar `price`, `paidPrice`, `autoCapture` gönderilmez. Taksit ve vade farkını Lunixi formu yönetir; `EnabledInstallments` bu ödeme için formun sunacağı taksit sayılarını yalnızca daraltır (ör. en fazla 3 taksit için `[]int{1, 2, 3}`, yalnız tek çekim için `[]int{1}`). Form, panel ayarlarınızın, kartın ve platform üst sınırının da izin verdiği sayıları gösterir; nil kısıt yok demektir. Sayılar 1–36 arası, tekrarsız olmalı ve 1'i içermelidir; aksi hâlde `CreateIntent` istek göndermeden `ErrConfiguration` döner. Liste artan sırada gönderilir. `BasketItem.ProductCategory` (`productCategory`) isteğe bağlı Lunixi ürün kategorisidir; yasal taksit sınırı olan ödeme yöntemleri (ör. alışveriş kredisi) ve diğer platform özellikleri tarafından kullanılır. Değer için `ProductCategory*` sabitlerini kullanın (`ProductCategories()` bu sürümün bildiği kodları listeler). Boş bırakılırsa alan gönderilmez ve mevcut davranış korunur; bilinmeyen kod API tarafından HTTP 400 ile reddedilir. Sözlük yalnız sona ekleme ile büyür; alan bu yüzden düz string'dir.
+
+Her ödeme gövdesi sipariş bilgilerini taşır: `Buyer` (`Name`, `Surname`, `IdentityNumber` — T.C. kimlik ya da pasaport numarası, `Email` — ASCII, `GSMNumber`, `City`, `Country`, `ZipCode`, `IP` — alıcının tarayıcı IP'si), `BillingAddress` (`ContactName`, `Address`, `City`, `Country`, `ZipCode`) ve en az bir `BasketItems` kalemi (`ID`, `Name`, `Category1`, `ItemType`, `Price`; fiyatların toplamı tutara eşittir); `PHYSICAL` kalemde `ShippingAddress` de gerekir. `CreateIntent` ve pazaryeri intent'lerinde `IP` gönderilmeyebilir: Lunixi formu IP'yi alıcının tarayıcısından alır. `CreateIntent`, `CreateMarketplaceIntent`, `Marketplace.CreateCheckoutIntent`, `DirectMethodPayment`, `Split`, pazaryeri kart çekimleri, `StoreCard` (yalnız alıcı ve fatura adresi) ve `Wallet.Topups.StartCard` (alıcı ve fatura adresi, teslimat adresi isteğe bağlı) eksik alanların yollarını (`buyer.email`, `basketItems.0.category1`, `shippingAddress`) sayan `ErrConfiguration` ile göndermeden durur; bu rotalara giden ham `Client.Do` gövdeleri de aynı şekilde denetlenir. `MissingOrderDetails(body, OrderDetailsOptions{})` aynı listeyi döner; alan listeleri `OrderDetailsRequiredFields()`, `BuyerRequiredFields()`, `CheckoutIntentBuyerOptionalFields()`, `AddressRequiredFields()` ve `BasketItemRequiredFields()` ile okunur. Gateway eksik alana 400 `OrderFieldErrorCodeFieldRequired` (`payment.order.field_required`), geçersiz değere `OrderFieldErrorCodeFieldInvalid` (`payment.order.field_invalid`) döner; `details.reason` bir `OrderFieldReason*` değeridir.
+
+Token yalnız ilgili siparişin yetkili müşterisine `Cache-Control: no-store` ile verilir; loglanmaz. PAN/CVV bu örneklere girmez.
 
 ## Kapsam
 
@@ -50,7 +66,7 @@ response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
 - `Client.Do`: diğer belgelenmiş `/api/v1/` uçlarına aynı imzalı taşıma katmanıyla erişim. Her ürünün tipli istemcisi vardır; `Do` yalnız bunların dışındaki uçlar içindir.
 - `WebhookVerifier` ve `SQLInbox`: ham gövde v2 imzası ve kalıcı transaction içinde tekrar engelleme.
 
-Yanıtta `Data`, `PageInfo`, asıl zarf ve ikili `Bytes` korunur. `DecodeData` arayüz değerleri için `json.Number` kullanır. `Split` belgelenmiş gateway map'ini alır ve güvenli toplam/parça tutarlarını, 1–5 parçayı ve parça toplamını yerelde denetler. Kart parçası (`paymentMethod` boş veya `CARD`) yöntem bloğu taşımaz; kart dışı parça, `providerCode` dahil yalnız kendi bloğunu (`SplitLegBlockFields()`) taşıyan ve kart alanı içermeyen bir `MOBILE_BILLING`, `WALLET` veya `PROMISSORY_NOTE` yöntemidir; senet parçası vade tablosu değil `noteCount` verir. `MEAL_CARD`, `OPEN_BANKING`, `SHOPPING_LOAN` ve `BANK_TRANSFER` parça olamaz. Yönteme özgü diğer alanları API şeması belirler. `ListSplits`, `SplitListFilters` alır (durum ve para birimi listeleri, oluşturma aralığı, sipariş, sahip, 1–100 arası limit, `After` imleci). Parçalı ödeme beklerken HTTP 400 içeren `Response` dönebilir; bu tahsilat değildir. Siparişi yalnız imzalı webhook / yetkili sunucu sorgusunda sipariş, merchant, ödeme kimliği, tutar, para birimi ve nihai tahsilat durumunu eşleştirerek tamamlayın. Tarayıcı dönüşü, HTTP 200 veya `AUTHORIZED` ödeme kanıtı değildir.
+Yanıtta `Data`, `PageInfo`, asıl zarf ve ikili `Bytes` korunur. `DecodeData` arayüz değerleri için `json.Number` kullanır. `Split` belgelenmiş gateway map'ini (`SplitPaymentFields()`: tutarlar, parçalar ve sipariş bilgileri `buyer`, `billingAddress`, `shippingAddress`, `basketItems`) alır ve güvenli toplam/parça tutarlarını, 1–5 parçayı, parça toplamını ve sipariş bilgilerini yerelde denetler. Kart parçası (`paymentMethod` boş veya `CARD`) yöntem bloğu taşımaz; kart dışı parça, `providerCode` dahil yalnız kendi bloğunu (`SplitLegBlockFields()`) taşıyan ve kart alanı içermeyen bir `MOBILE_BILLING`, `WALLET` veya `PROMISSORY_NOTE` yöntemidir; senet parçası vade tablosu değil `noteCount` verir. `MEAL_CARD`, `OPEN_BANKING`, `SHOPPING_LOAN` ve `BANK_TRANSFER` parça olamaz. Yönteme özgü diğer alanları API şeması belirler. `ListSplits`, `SplitListFilters` alır (durum ve para birimi listeleri, oluşturma aralığı, sipariş, sahip, 1–100 arası limit, `After` imleci). Parçalı ödeme beklerken HTTP 400 içeren `Response` dönebilir; bu tahsilat değildir. Siparişi yalnız imzalı webhook / yetkili sunucu sorgusunda sipariş, merchant, ödeme kimliği, tutar, para birimi ve nihai tahsilat durumunu eşleştirerek tamamlayın. Tarayıcı dönüşü, HTTP 200 veya `AUTHORIZED` ödeme kanıtı değildir.
 
 ## Kartlar, taksitler ve pazaryeri intent'leri
 
@@ -61,6 +77,7 @@ quote, err := client.Payments.InstallmentOptions(ctx, lunixi.InstallmentOptionsR
 })
 stored, err := client.Payments.StoreCard(ctx, lunixi.StoreCardRequest{
     Card: cardFields, CardUserKey: buyerKey, CallbackURL: "https://merchant.example/cards/return",
+    Buyer: &buyer, BillingAddress: &billingAddress, // zorunlu; sepet yok
 }, persistedStoreKey)
 ```
 
@@ -79,7 +96,7 @@ link, err := client.PaymentLinks.Create(ctx, lunixi.PaymentLinkRequest{
 image, err := client.PaymentLinks.UploadImage(ctx, "logo.png", lunixi.PaymentLinkImageContentTypePNG, pngBytes)
 ```
 
-Okumalar dahil her ödeme linki çağrısı imzalıdır; ortamı imzalayan anahtar belirler, bu yüzden TEST anahtarı yalnız TEST linklerini görür. `Create` ve `Send` bir idempotency anahtarı ister (8–200 yazdırılabilir ASCII karakter); `Update`, `Pause`, `Resume` ve `Deactivate` isteğe bağlı anahtar alır. Kullanım şekli, tutar modu ve para birimi oluşturmada sabitlenir: `Update(ctx, linkID, expectedRowVersion, changes, key)` yalnız `PaymentLinkSpecFields()` adlarını alır, `PaymentLinkImmutableFields()` alanlarını reddeder, `nil` verilen alanı temizler ve `time.Time` değerini RFC 3339 UTC olarak gönderir. Değer kümeleri `PaymentLink*`, `BuyerFieldRequirement*` ve `CustomFieldType*` sabitleridir; bilinmeyen değerler göndermeden önce reddedilir, iş kuralları API'ye bırakılır (422 `payment_link.validation.invalid`). `List`, `ListAttempts` ve `ListPayments`, `PageInfo` ile `Data.items` döndürür; `pageInfo.nextCursor` değerini `Cursor` olarak verin. `QR`, SVG veya PNG görseli `Response.Bytes` içinde döndürür.
+Okumalar dahil her ödeme linki çağrısı imzalıdır; ortamı imzalayan anahtar belirler, bu yüzden TEST anahtarı yalnız TEST linklerini görür. `Create` ve `Send` bir idempotency anahtarı ister (8–200 yazdırılabilir ASCII karakter); `Update`, `Pause`, `Resume` ve `Deactivate` isteğe bağlı anahtar alır. Kullanım şekli, tutar modu ve para birimi oluşturmada sabitlenir: `Update(ctx, linkID, expectedRowVersion, changes, key)` yalnız `PaymentLinkSpecFields()` adlarını alır, `PaymentLinkImmutableFields()` alanlarını reddeder, `nil` verilen alanı temizler ve `time.Time` değerini RFC 3339 UTC olarak gönderir. Değer kümeleri `PaymentLink*`, `BuyerFieldRequirementRequired` (alıcı alanının tek değeri: link sayfası beş alıcı alanını her zaman sorar) ve `CustomFieldType*` sabitleridir; bilinmeyen değerler göndermeden önce reddedilir, iş kuralları API'ye bırakılır (422 `payment_link.validation.invalid`). `List`, `ListAttempts` ve `ListPayments`, `PageInfo` ile `Data.items` döndürür; `pageInfo.nextCursor` değerini `Cursor` olarak verin. `QR`, SVG veya PNG görseli `Response.Bytes` içinde döndürür.
 
 Link görseli üç adımda yüklenir: `CreateImageUpload` yükleme hedefini döndürür, dosya tam olarak `UploadHeaders` başlıklarıyla `UploadURL` adresine PUT edilir ve `ConfirmImageUpload` görseli yayımlar (PNG, JPEG veya WebP, en fazla 2 MiB). `UploadImage` üçünü birden çalıştırır. PUT isteği yapılandırdığınız HTTP istemcisiyle depolama sunucusuna gider ama imzalı taşıma katmanından geçmez: oraya erişim token'ı, imza, digest veya idempotency başlığı gönderilmez. Başarısız PUT, depolamanın durum ve koduyla bir `APIError` döndürür (ör. adresin süresi dolduktan sonra `AccessDenied`) ve yeniden denenmez; `UploadImage` çağrısını tekrar yapın.
 
@@ -91,7 +108,10 @@ Link görseli üç adımda yüklenir: `CreateImageUpload` yükleme hedefini dön
 request := lunixi.NewDirectMethodPaymentRequest("10000", "TRY", "ORD-1001").
     WithMethodFields(lunixi.PaymentMethodMobileBilling, providerCode, map[string]any{
         "gsmNumber": "+905321234567",
-    })
+    }).
+    WithBuyer(buyer). // IP dahil: alıcının tarayıcı IP'si
+    WithBillingAddress(billingAddress).
+    WithBasketItems(basketItems)
 response, err := client.Payments.DirectMethodPayment(ctx, request, persistedAttemptKey)
 if err != nil { return err }
 // HTTP 202 with data.action when the buyer must act (PaymentActionType*).
@@ -178,7 +198,7 @@ done, err := client.Wallet.Transfers.CompleteW2W(ctx, operationID, map[string]an
 }, completeKey)
 ```
 
-İstekler ve filtreler, göndermeden önce `WalletRoutes()` ile (diğer Lunixi SDK'larıyla aynı rota tablosu) denetlenen map'lerdir: bilinmeyen alan, eksik zorunlu alan, küçük birim rakam metni (`"12550"`) olmayan tutar, `ImportEmployees` / `OffboardEmployees` / toplu ödeme `items` içinde hatalı satır ya da anahtar isteyen bir rotada eksik `Idempotency-Key` `ErrConfiguration` döndürür. Cüzdan anahtarları 1–128 yazdırılabilir ASCII karakterdir. `Complete…` çağrıları `operationId` değerini gövdeye kendileri ekler. `QR.Image`, SVG veya PNG'yi `Response.Bytes` içinde döndürür. Listeler `CursorPage` döndürür; `Iterate` imleci izler.
+İstekler ve filtreler, göndermeden önce `WalletRoutes()` ile (diğer Lunixi SDK'larıyla aynı rota tablosu) denetlenen map'lerdir: bilinmeyen alan, eksik zorunlu alan, küçük birim rakam metni (`"12550"`) olmayan tutar, `ImportEmployees` / `OffboardEmployees` / toplu ödeme `items` içinde hatalı satır ya da anahtar isteyen bir rotada eksik `Idempotency-Key` `ErrConfiguration` döndürür. Cüzdan anahtarları 1–128 yazdırılabilir ASCII karakterdir. `Topups.StartCard` sipariş bilgisi alanlarıyla `buyer` ve `billingAddress` ister (`shippingAddress` isteğe bağlı). `Complete…` çağrıları `operationId` değerini gövdeye kendileri ekler. `QR.Image`, SVG veya PNG'yi `Response.Bytes` içinde döndürür. Listeler `CursorPage` döndürür; `Iterate` imleci izler.
 
 ## Banka hesapları, transferler ve döviz
 
@@ -231,7 +251,12 @@ Alanlar ve filtreler göndermeden önce `InsuranceQuoteFields()`, `InsuranceLead
 `client.Subscriptions` abonelikleri oluşturur ve yönetir (`Create`, `Get`, `List` / `Iterate`, `Cancel`, `Pause`, `Resume`, `ChangePlan`, `AuditLogs`); ilgili kaynaklar `Plans`, `Customers`, `Cards`, `Invoices`, `Portal`, `Products`, `Features`, `Addons` ve `Usage` altındadır.
 
 ```go
-customer, err := client.Subscriptions.Customers.Upsert(ctx, map[string]any{"externalId": userID, "email": email}, "")
+customer, err := client.Subscriptions.Customers.Upsert(ctx, map[string]any{
+    "externalId": userID, "name": "Ada", "surname": "Yılmaz", "email": email,
+    "gsmNumber": "+905000000000", "identityNumber": "11111111111",
+    "billingAddress": "Örnek Sok. No: 1", "billingCity": "İstanbul",
+    "billingCountry": "Türkiye", "billingZipCode": "34662",
+}, "") // yenilemeler alıcıyı bu kayıttan alır
 plan, err := client.Subscriptions.Plans.Create(ctx, map[string]any{
     "productId": productID, "code": "pro", "name": "Pro", "price": "9900", "currency": "TRY",
     "billing": map[string]any{"frequency": lunixi.SubscriptionBillingFrequencyMonthly},
@@ -241,7 +266,7 @@ sub, err := client.Subscriptions.Create(ctx, map[string]any{
 }, subscriptionKey) // required; sent in the header and the body
 ```
 
-İstekler ve filtreler, göndermeden önce `SubscriptionRoutes()` ile (diğer Lunixi SDK'larıyla aynı rota tablosu) denetlenen map'lerdir: bilinmeyen alan veya filtre, eksik zorunlu alan, kümesi dışında bir değer (tahsilat yöntemi, faturalama sıklığı, kart doğrulama modu, plan değişikliği davranışı, portal SDK modu) ya da eksik anahtar, değeri değil alanı adlandıran bir `ErrConfiguration` döndürür. Para alanları gövdelerde, filtrelerde ve yanıtlarda kanonik küçük birim string'lerdir (`"0"` ücretsiz plandır). `Create` bir `Idempotency-Key` ister (1–200 yazdırılabilir ASCII karakter); plan, müşteri, kart, plan değişikliği ve tahsilat yeniden denemesi yazımları isteğe bağlı anahtar alır. `Cards.Add`, checkout SDK'sının `paymentMethodToken` değerini alır; kart numarası reddedilir. Abonelik, plan, müşteri, kart, fatura ve denetim kaydı listeleri, `nextPageToken` değeri `NextCursor` içinde (`Iterate` tarafından `pageToken` olarak geri gönderilir) ve `PageSize` ile `CursorPage` döndürür. `Portal.CreateSdkSession` tarayıcı portal SDK'sı için oturum kanıtını, `Portal.CreatePortalLink` barındırılan bir linki (`SubscriptionPortalURL`) döndürür. `IsSubscriptionActive`, `IsSubscriptionTerminal` ve `SubscriptionEvent*` webhook adları da bu yüzeyle gelir.
+İstekler ve filtreler, göndermeden önce `SubscriptionRoutes()` ile (diğer Lunixi SDK'larıyla aynı rota tablosu) denetlenen map'lerdir: bilinmeyen alan veya filtre, eksik zorunlu alan, kümesi dışında bir değer (tahsilat yöntemi, faturalama sıklığı, kart doğrulama modu, plan değişikliği davranışı, portal SDK modu) ya da eksik anahtar, değeri değil alanı adlandıran bir `ErrConfiguration` döndürür. Para alanları gövdelerde, filtrelerde ve yanıtlarda kanonik küçük birim string'lerdir (`"0"` ücretsiz plandır). `Create` bir `Idempotency-Key` ister (1–200 yazdırılabilir ASCII karakter); plan, müşteri, kart, plan değişikliği ve tahsilat yeniden denemesi yazımları isteğe bağlı anahtar alır. `Customers.Upsert`; `externalId`, `name`, `surname`, `email`, `gsmNumber`, `identityNumber`, `billingAddress`, `billingCity`, `billingCountry` ve `billingZipCode` ister (`phone`, `locale` ve `metadata` kabul edilmez); gateway eksik ya da geçersiz müşteri alanına `SubscriptionCustomerErrorCodeFieldRequired` / `SubscriptionCustomerErrorCodeFieldInvalid` döner. `Cards.Add`, checkout SDK'sının `paymentMethodToken` değerini alır; kart numarası reddedilir. Abonelik, plan, müşteri, kart, fatura ve denetim kaydı listeleri, `nextPageToken` değeri `NextCursor` içinde (`Iterate` tarafından `pageToken` olarak geri gönderilir) ve `PageSize` ile `CursorPage` döndürür. `Portal.CreateSdkSession` tarayıcı portal SDK'sı için oturum kanıtını, `Portal.CreatePortalLink` barındırılan bir linki (`SubscriptionPortalURL`) döndürür. `IsSubscriptionActive`, `IsSubscriptionTerminal` ve `SubscriptionEvent*` webhook adları da bu yüzeyle gelir.
 
 ## KYC ve kimlik sinyalleri
 
@@ -255,13 +280,13 @@ sub, err := client.Subscriptions.Create(ctx, map[string]any{
 
 ```go
 legs := []lunixi.MarketplaceSeller{{SubDealerID: "d_alice", AmountMinor: "6050"}, {SubDealerID: "d_bob", AmountMinor: "4000"}}
-intent, err := client.Marketplace.CreateCheckoutIntent(ctx, intentRequest, legs, lunixi.MarketplaceMultiSellerPolicyAllOrNothing, attemptKey)
+intent, err := client.Marketplace.CreateCheckoutIntent(ctx, intentRequest, legs, lunixi.MarketplaceMultiSellerPolicyAllOrNothing, attemptKey) // intentRequest sipariş bilgileriyle
 dealer, err := client.Marketplace.CreateDealer(ctx, map[string]any{"legalName": "Acme Ltd", "dealerType": lunixi.MarketplaceDealerTypeLegalEntity})
 link, err := client.Marketplace.OnboardingToken(ctx, dealerID)
 onboardingURL := lunixi.MarketplaceOnboardingURL(link, "")
 ```
 
-Bölünmüş tahsilatlar (`CreateCheckoutIntent`, `ChargeMarketplaceCard2d`, `ChargeMarketplaceCard3d`, `ChargeMarketplaceCard`) imzalıdır ve isteğe bağlı bir ödeme anahtarı alır (16–128 yazdırılabilir ASCII karakter). Satıcı parçalarının pozitif küçük birim paylarla toplamı `amount` değerine eşit olmalıdır; kart tahsilatı ayrıca `currency`, `orderId`, `card`, `buyer`, `billingAddress` ve en az bir sepet kalemi ister; `price` / `paidPrice` alanlarını ve boolean olmayan `preauth` değerini reddeder. Kart verisi verildiği gibi gönderilir ve hiçbir hata mesajında görünmez; çoğu pazaryeri barındırılan `CreateCheckoutIntent` akışını kullanır; yanıt token taşımazsa bu çağrı `*APIError` döndürür. Bayi, komisyon, hakediş ödemesi ve denetim rotaları yalnız erişim token'ıyla çalışır ve `MarketplaceRoutes()` ile denetlenir; para alanları gövdelerde, filtrelerde ve yanıtlarda kanonik küçük birim string'lerdir.
+Bölünmüş tahsilatlar (`CreateCheckoutIntent`, `ChargeMarketplaceCard2d`, `ChargeMarketplaceCard3d`, `ChargeMarketplaceCard`) imzalıdır ve isteğe bağlı bir ödeme anahtarı alır (16–128 yazdırılabilir ASCII karakter). Satıcı parçalarının pozitif küçük birim paylarla toplamı `amount` değerine eşit olmalıdır; kart tahsilatı ayrıca `currency`, `orderId`, `card`, `buyer` (`ip` dahil), `billingAddress` ve en az bir sepet kalemi (`PHYSICAL` kalemde `shippingAddress`) ister, her biri sipariş bilgisi alanlarıyla; `price` / `paidPrice` alanlarını ve boolean olmayan `preauth` değerini reddeder. Kart verisi verildiği gibi gönderilir ve hiçbir hata mesajında görünmez; çoğu pazaryeri barındırılan `CreateCheckoutIntent` akışını kullanır; yanıt token taşımazsa bu çağrı `*APIError` döndürür. Bayi, komisyon, hakediş ödemesi ve denetim rotaları yalnız erişim token'ıyla çalışır ve `MarketplaceRoutes()` ile denetlenir; para alanları gövdelerde, filtrelerde ve yanıtlarda kanonik küçük birim string'lerdir.
 
 ## Güvenli tekrar ve webhook
 

@@ -207,12 +207,12 @@ func TestBankTransferDirectPaymentBodyAndInstruction(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 		fmt.Fprint(w, bankTransferAnswer)
 	})
-	request := NewDirectMethodPaymentRequest("125000", "TRY", "ORDER-2041").WithMethodFields(PaymentMethodBankTransfer, "", map[string]any{"bankCode": "0062"})
+	request := withTestOrder(NewDirectMethodPaymentRequest("125000", "TRY", "ORDER-2041").WithMethodFields(PaymentMethodBankTransfer, "", map[string]any{"bankCode": "0062"}), "125000")
 	body, e := request.Body()
 	if e != nil {
 		t.Fatal(e)
 	}
-	want := map[string]any{"paymentMethod": "BANK_TRANSFER", "amount": "125000", "currency": "TRY", "orderId": "ORDER-2041", "bankTransfer": map[string]any{"bankCode": "0062"}}
+	want := withOrder(map[string]any{"paymentMethod": "BANK_TRANSFER", "amount": "125000", "currency": "TRY", "orderId": "ORDER-2041", "bankTransfer": map[string]any{"bankCode": "0062"}}, "125000")
 	if !reflect.DeepEqual(body, want) {
 		t.Fatalf("body %v", body)
 	}
@@ -224,7 +224,8 @@ func TestBankTransferDirectPaymentBodyAndInstruction(t *testing.T) {
 	if len(sent) != 1 || sent[0].URI != "/api/v1/payments/direct/payment" || sent[0].IdempotencyKey != testKey || !sent[0].Signed {
 		t.Fatalf("unexpected request %+v", sent)
 	}
-	if got := decodeBody(t, sent[0].Body); !reflect.DeepEqual(got, want) {
+	wire, _ := json.Marshal(want)
+	if got := decodeBody(t, sent[0].Body); !reflect.DeepEqual(got, decodeBody(t, wire)) {
 		t.Fatalf("sent %v", got)
 	}
 	instruction := response.BankTransferInstruction()
@@ -324,7 +325,7 @@ func TestDirectMethodPaymentRejectsInvalidBodiesBeforeNetwork(t *testing.T) {
 
 func TestDirectCardPaymentKeepsCardFields(t *testing.T) {
 	client, requests := newRecordingClient(t, nil)
-	request := NewDirectMethodPaymentRequest("1000", "try", "ORDER-1").
+	request := withTestOrder(NewDirectMethodPaymentRequest("1000", "try", "ORDER-1"), "1000").
 		WithCard(map[string]any{"cardUserKey": "cuk_1", "cardToken": "ct_1"}).
 		WithForce3D(true).
 		WithInstallment(3, "iq_1").

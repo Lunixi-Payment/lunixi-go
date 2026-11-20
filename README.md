@@ -12,7 +12,7 @@
 Version 1.0.0 includes a concrete merchant-site presentation example. **Embedded checkout is the default**: load only the official Lunixi bundle and mount the existing form; methods and multi-card choices stay in the Lunixi panel. Optional hosted mode uses the backend `paymentPageUrl` after exact HTTPS `pay.lunixi.com/payment/` validation. Its token may differ from the embedded token. Missing URLs keep embedded available and hosted on hold/reconciliation with the original attempt/key. Never derive a URL from the browser token. Authorize the customer/order and native browser CSRF before rendering, send `Cache-Control: private, no-store`, preserve the merchant CSP nonce and keep tokens/HTML/redirect URLs out of logs. Generic response data preserves `paymentPageUrl` (every product now has a typed client).
 
 [![CI](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/Lunixi-Payment/lunixi-go/actions/workflows/ci.yml)
-[![Go reference](https://pkg.go.dev/badge/github.com/Lunixi-Payment/lunixi-go.svg)](https://pkg.go.dev/github.com/Lunixi-Payment/lunixi-go)
+[![Go reference](https://pkg.go.dev/badge/github.com/Lunixi-Payment/lunixi-go/v2.svg)](https://pkg.go.dev/github.com/Lunixi-Payment/lunixi-go/v2)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **[Documentation](https://docs.lunixi.com/sdks/go) · [Türkçe](docs/README.tr.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)**
@@ -21,13 +21,13 @@ Server-side Go client for Lunixi payments. Works with `net/http`, Gin, Echo, Fib
 
 ## Installation
 
-Install the published immutable [v1.0.0 module](https://github.com/Lunixi-Payment/lunixi-go/tree/v1.0.0):
+Install the published immutable [v2.0.0 module](https://github.com/Lunixi-Payment/lunixi-go/tree/v2.0.0):
 
 ```sh
-go get github.com/Lunixi-Payment/lunixi-go@v1.0.0
+go get github.com/Lunixi-Payment/lunixi-go/v2@v2.0.0
 ```
 
-Keep `go.sum` and verify the module through the Go proxy and checksum database. The 0.x versions use the previous money contract.
+Keep `go.sum` and verify the module through the Go proxy and checksum database. Version 2 requires the order details on payment endpoints; its import path ends in `/v2`. The 0.x versions use the previous money contract.
 
 ## Create one client per merchant
 
@@ -35,7 +35,7 @@ Keep `go.sum` and verify the module through the Go proxy and checksum database. 
 import (
     "os"
     "time"
-    lunixi "github.com/Lunixi-Payment/lunixi-go"
+    lunixi "github.com/Lunixi-Payment/lunixi-go/v2"
 )
 
 client, err := lunixi.New(lunixi.Config{
@@ -75,8 +75,20 @@ response, err := client.Payments.CreateIntent(ctx, lunixi.IntentRequest{
     Currency:    "TRY",
     OrderID:     "ORD-1001",
     CallbackURL: "https://merchant.example/payment/return",
+    // Buyer, billing address and basket are required; a PHYSICAL item also needs
+    // the shipping address. Take them from your order, never a placeholder.
+    // The buyer IP is optional on an intent: the Lunixi form takes it from the browser.
+    Buyer: &lunixi.Buyer{
+        Name: "Ada", Surname: "Yilmaz", IdentityNumber: "11111111111",
+        Email: "ada@example.com", GSMNumber: "+905000000000",
+        City: "Istanbul", Country: "Turkey", ZipCode: "34732",
+    },
+    BillingAddress: &lunixi.Address{
+        ContactName: "Ada Yilmaz", Address: "Example Street 1",
+        City: "Istanbul", Country: "Turkey", ZipCode: "34662",
+    },
     BasketItems: []lunixi.BasketItem{
-        {ID: "line-1", Name: "Example product", ItemType: "PHYSICAL", Price: "10050"},
+        {ID: "line-1", Name: "Consulting service", Category1: "Services", ItemType: "VIRTUAL", Price: "10050"},
     },
 }, persistedAttemptKey)
 if err != nil { return err }
@@ -88,7 +100,9 @@ if checkout.Token == "" { return errors.New("missing checkout token") }
 // Cache-Control: no-store. Initialize the existing Lunixi checkout form.
 ```
 
-Amounts are `string` minor units, positive and no greater than `9223372036854775807`. Basket `Price` is the line total; line totals must equal `Amount`. Do not send the removed root fields `price`, `paidPrice`, `autoCapture`. Installment selection and fees belong to the Lunixi form; `EnabledInstallments` can only narrow the counts the form offers for this payment (for example `[]int{1, 2, 3}` for at most 3, `[]int{1}` for a single payment only). The form shows only the counts your panel settings, the card and the platform maximum also allow; nil means no restriction. Counts are 1–36, distinct and include 1, otherwise `CreateIntent` returns `ErrConfiguration` before any request; the list is sent in ascending order. Buyer/address and documented insurance basket details can be supplied on `IntentRequest`; optional method restrictions can narrow the methods already enabled in the Lunixi panel. `BasketItem.ProductCategory` (`productCategory`) is the optional Lunixi product category, used by payment methods with legal installment limits (e.g. shopping loan) and other platform features; use a `ProductCategory*` constant (`ProductCategories()` lists the codes known to this version). Empty omits the field and keeps today's behaviour; an unknown code is rejected by the API with HTTP 400. The dictionary only grows, so the field stays a plain string.
+Amounts are `string` minor units, positive and no greater than `9223372036854775807`. Basket `Price` is the line total; line totals must equal `Amount`. Do not send the removed root fields `price`, `paidPrice`, `autoCapture`. Installment selection and fees belong to the Lunixi form; `EnabledInstallments` can only narrow the counts the form offers for this payment (for example `[]int{1, 2, 3}` for at most 3, `[]int{1}` for a single payment only). The form shows only the counts your panel settings, the card and the platform maximum also allow; nil means no restriction. Counts are 1–36, distinct and include 1, otherwise `CreateIntent` returns `ErrConfiguration` before any request; the list is sent in ascending order. Documented insurance basket details can be supplied on `IntentRequest`; optional method restrictions can narrow the methods already enabled in the Lunixi panel. `BasketItem.ProductCategory` (`productCategory`) is the optional Lunixi product category, used by payment methods with legal installment limits (e.g. shopping loan) and other platform features; use a `ProductCategory*` constant (`ProductCategories()` lists the codes known to this version). Empty omits the field and keeps today's behaviour; an unknown code is rejected by the API with HTTP 400. The dictionary only grows, so the field stays a plain string.
+
+Every payment body carries the order details: `Buyer` (`Name`, `Surname`, `IdentityNumber` — Turkish ID or passport number, `Email` — ASCII, `GSMNumber`, `City`, `Country`, `ZipCode`, `IP` — the buyer's browser IP), `BillingAddress` (`ContactName`, `Address`, `City`, `Country`, `ZipCode`) and at least one `BasketItems` entry (`ID`, `Name`, `Category1`, `ItemType`, `Price`; the prices add up to the amount); a `PHYSICAL` item also needs `ShippingAddress`. On `CreateIntent` and the marketplace intents `IP` may be left out: the Lunixi form takes it from the buyer's browser. `CreateIntent`, `CreateMarketplaceIntent`, `Marketplace.CreateCheckoutIntent`, `DirectMethodPayment`, `Split`, the marketplace card charges, `StoreCard` (buyer and billing address only) and `Wallet.Topups.StartCard` (buyer and billing address, shipping address optional) return `ErrConfiguration` naming the missing paths before sending (`buyer.email`, `basketItems.0.category1`, `shippingAddress`); raw `Client.Do` bodies to these routes are checked the same way. `MissingOrderDetails(body, OrderDetailsOptions{})` returns the same list; the field lists are `OrderDetailsRequiredFields()`, `BuyerRequiredFields()`, `CheckoutIntentBuyerOptionalFields()`, `AddressRequiredFields()` and `BasketItemRequiredFields()`. The gateway answers a missing field with 400 `OrderFieldErrorCodeFieldRequired` (`payment.order.field_required`) and an invalid one with `OrderFieldErrorCodeFieldInvalid` (`payment.order.field_invalid`); `details.reason` is an `OrderFieldReason*` value.
 
 The existing Lunixi form handles cards and enabled alternative methods; this SDK does not build another form or collect PAN/CVV. **A checkout token, a browser return, HTTP 200 or an authorization is not proof of capture.** Finalize only from an authenticated gateway result after checking your stored order ID, merchant, payment ID, expected amount/currency and final capture/reconciliation state. Apply corresponding refund, void and dispute transitions separately.
 
@@ -116,7 +130,7 @@ refund, err := client.Payments.Refund(ctx, paymentID, &partial, "Customer return
 | `Client.Do` | Signed requests to other documented `/api/v1/` merchant endpoints |
 | `WebhookVerifier`, `SQLInbox` | Raw v2 verification and durable transactional deduplication |
 
-`Split` accepts the documented gateway map and locally checks safe total/leg amounts, 1–5 legs and the leg sum. A card leg (`paymentMethod` empty or `CARD`) carries no method block; a non-card leg is a `MOBILE_BILLING`, `WALLET` or `PROMISSORY_NOTE` method with exactly its own block (`SplitLegBlockFields()`), including `providerCode`, and no card fields; a promissory-note leg gives `noteCount`, not a schedule. `MEAL_CARD`, `OPEN_BANKING`, `SHOPPING_LOAN` and `BANK_TRANSFER` cannot be legs. Other method-specific fields remain governed by the API schema. `ListSplits` takes `SplitListFilters` (status and currency lists, created range, order, owner, limit 1–100, `After` cursor). A pending split may return a `Response` with HTTP 400; inspect `StatusCode` and signed gateway status. `AUTHORIZED`, `AWAITING_*`, `COMPENSATING`, partial refunds and reconciliation-required states do not imply a fulfilled order. Root SDK responses preserve the original envelope, `Data`, `PageInfo` and binary `Bytes`; `DecodeData` uses `json.Number` for interface values.
+`Split` accepts the documented gateway map (`SplitPaymentFields()`: the amounts, legs and the order details `buyer`, `billingAddress`, `shippingAddress`, `basketItems`) and locally checks safe total/leg amounts, 1–5 legs, the leg sum and the order details. A card leg (`paymentMethod` empty or `CARD`) carries no method block; a non-card leg is a `MOBILE_BILLING`, `WALLET` or `PROMISSORY_NOTE` method with exactly its own block (`SplitLegBlockFields()`), including `providerCode`, and no card fields; a promissory-note leg gives `noteCount`, not a schedule. `MEAL_CARD`, `OPEN_BANKING`, `SHOPPING_LOAN` and `BANK_TRANSFER` cannot be legs. Other method-specific fields remain governed by the API schema. `ListSplits` takes `SplitListFilters` (status and currency lists, created range, order, owner, limit 1–100, `After` cursor). A pending split may return a `Response` with HTTP 400; inspect `StatusCode` and signed gateway status. `AUTHORIZED`, `AWAITING_*`, `COMPENSATING`, partial refunds and reconciliation-required states do not imply a fulfilled order. Root SDK responses preserve the original envelope, `Data`, `PageInfo` and binary `Bytes`; `DecodeData` uses `json.Number` for interface values.
 
 Every product has a typed client (see the sections below). `Client.Do` remains for any other documented `/api/v1/` endpoint, with the same signed transport. For example:
 
@@ -141,6 +155,7 @@ quote, err := client.Payments.InstallmentOptions(ctx, lunixi.InstallmentOptionsR
 })
 stored, err := client.Payments.StoreCard(ctx, lunixi.StoreCardRequest{
     Card: cardFields, CardUserKey: buyerKey, CallbackURL: "https://merchant.example/cards/return",
+    Buyer: &buyer, BillingAddress: &billingAddress, // required; no basket
 }, persistedStoreKey)
 ```
 
@@ -159,7 +174,7 @@ link, err := client.PaymentLinks.Create(ctx, lunixi.PaymentLinkRequest{
 image, err := client.PaymentLinks.UploadImage(ctx, "logo.png", lunixi.PaymentLinkImageContentTypePNG, pngBytes)
 ```
 
-Every payment-link call is signed, reads included; the signing key decides the environment, so a TEST key sees only TEST links. `Create` and `Send` require an idempotency key (8–200 printable ASCII characters); `Update`, `Pause`, `Resume` and `Deactivate` accept one. Usage, amount mode and currency are fixed at creation: `Update(ctx, linkID, expectedRowVersion, changes, key)` takes only `PaymentLinkSpecFields()` names, refuses `PaymentLinkImmutableFields()`, clears a field given `nil` and sends a `time.Time` as RFC 3339 UTC. Value sets are the `PaymentLink*`, `BuyerFieldRequirement*` and `CustomFieldType*` constants; unknown values are refused before sending, and business rules are left to the API (422 `payment_link.validation.invalid`). `List`, `ListAttempts` and `ListPayments` return `Data.items` with `PageInfo`; pass `pageInfo.nextCursor` as `Cursor`. `QR` returns the SVG or PNG image in `Response.Bytes`.
+Every payment-link call is signed, reads included; the signing key decides the environment, so a TEST key sees only TEST links. `Create` and `Send` require an idempotency key (8–200 printable ASCII characters); `Update`, `Pause`, `Resume` and `Deactivate` accept one. Usage, amount mode and currency are fixed at creation: `Update(ctx, linkID, expectedRowVersion, changes, key)` takes only `PaymentLinkSpecFields()` names, refuses `PaymentLinkImmutableFields()`, clears a field given `nil` and sends a `time.Time` as RFC 3339 UTC. Value sets are the `PaymentLink*`, `BuyerFieldRequirementRequired` (the only buyer field value: the link page always asks all five buyer fields) and `CustomFieldType*` constants; unknown values are refused before sending, and business rules are left to the API (422 `payment_link.validation.invalid`). `List`, `ListAttempts` and `ListPayments` return `Data.items` with `PageInfo`; pass `pageInfo.nextCursor` as `Cursor`. `QR` returns the SVG or PNG image in `Response.Bytes`.
 
 A link image takes three steps: `CreateImageUpload` returns the upload target, the file is PUT to `UploadURL` with exactly `UploadHeaders`, and `ConfirmImageUpload` publishes it (PNG, JPEG or WebP, at most 2 MiB). `UploadImage` runs all three. The PUT goes to the storage host through your configured HTTP client but not through the signed transport: no access token, signature, digest or idempotency header is sent there. A failed PUT returns an `APIError` with the storage status and code (for example `AccessDenied` after the URL expires) and is not retried; call `UploadImage` again.
 
@@ -171,7 +186,10 @@ A link image takes three steps: `CreateImageUpload` returns the upload target, t
 request := lunixi.NewDirectMethodPaymentRequest("10000", "TRY", "ORD-1001").
     WithMethodFields(lunixi.PaymentMethodMobileBilling, providerCode, map[string]any{
         "gsmNumber": "+905321234567",
-    })
+    }).
+    WithBuyer(buyer). // including IP, the buyer's browser IP
+    WithBillingAddress(billingAddress).
+    WithBasketItems(basketItems)
 response, err := client.Payments.DirectMethodPayment(ctx, request, persistedAttemptKey)
 if err != nil { return err }
 // HTTP 202 with data.action when the buyer must act (PaymentActionType*).
@@ -181,7 +199,7 @@ _, err = client.Payments.ConfirmPaymentAction(ctx, paymentID, actionID, lunixi.P
 })
 ```
 
-`DirectMethodPayment` requires the idempotency key. Before sending, it checks (also for raw `Client.Do` bodies to `/api/v1/payments/direct/payment`): known fields only; `paymentMethod`, `amount`, `currency`, `orderId`; card fields (`CardOnlyFields()`) only with `CARD`; exactly the block of the chosen method (`BlockNameOf`, `MethodBlockFields()`); a block of at most 32 fields whose values are text (at most 1024 characters), numbers, booleans, `ADDRESS` objects or `GROUP` lists of at most 10 objects; 1–100 basket items for `SHOPPING_LOAN`. A method without a block cannot be paid this way yet. Cards use `WithCard` (and `WithForce3D(true)` for 3D Secure). `ConfirmPaymentAction` sends only `otp` (digits), `consentAccepted` and `fields`; `ResendPaymentAction` asks for a new code and closes the previous action.
+`DirectMethodPayment` requires the idempotency key. Before sending, it checks (also for raw `Client.Do` bodies to `/api/v1/payments/direct/payment`): known fields only; `paymentMethod`, `amount`, `currency`, `orderId`; the order details (`WithBuyer`, `WithBillingAddress`, `WithBasketItems`, `WithShippingAddress` for a `PHYSICAL` item); card fields (`CardOnlyFields()`) only with `CARD`; exactly the block of the chosen method (`BlockNameOf`, `MethodBlockFields()`); a block of at most 32 fields whose values are text (at most 1024 characters), numbers, booleans, `ADDRESS` objects or `GROUP` lists of at most 10 objects; 1–100 basket items for `SHOPPING_LOAN`. A method without a block cannot be paid this way yet. Cards use `WithCard` (and `WithForce3D(true)` for 3D Secure). `ConfirmPaymentAction` sends only `otp` (digits), `consentAccepted` and `fields`; `ResendPaymentAction` asks for a new code and closes the previous action.
 
 ### Promissory notes
 
@@ -258,7 +276,7 @@ done, err := client.Wallet.Transfers.CompleteW2W(ctx, operationID, map[string]an
 }, completeKey)
 ```
 
-Requests and filters are maps checked against `WalletRoutes()` (the same route table as the other Lunixi SDKs) before sending: an unknown field, a missing required field, an amount that is not minor-unit digit text (`"12550"`), a bad row in `ImportEmployees` / `OffboardEmployees` / bulk payout `items`, or a missing `Idempotency-Key` on a route that requires it returns `ErrConfiguration`. Wallet keys are 1–128 printable ASCII characters. `Complete…` calls put `operationId` into the body themselves. `QR.Image` returns the SVG or PNG in `Response.Bytes`. Lists return `CursorPage`; `Iterate` follows the cursor.
+Requests and filters are maps checked against `WalletRoutes()` (the same route table as the other Lunixi SDKs) before sending: an unknown field, a missing required field, an amount that is not minor-unit digit text (`"12550"`), a bad row in `ImportEmployees` / `OffboardEmployees` / bulk payout `items`, or a missing `Idempotency-Key` on a route that requires it returns `ErrConfiguration`. Wallet keys are 1–128 printable ASCII characters. `Topups.StartCard` requires `buyer` and `billingAddress` with the order details fields (`shippingAddress` optional). `Complete…` calls put `operationId` into the body themselves. `QR.Image` returns the SVG or PNG in `Response.Bytes`. Lists return `CursorPage`; `Iterate` follows the cursor.
 
 ## Bank accounts, transfers and currency exchange
 
@@ -311,7 +329,12 @@ Fields and filters are checked against `InsuranceQuoteFields()`, `InsuranceLeadF
 `client.Subscriptions` creates and manages subscriptions (`Create`, `Get`, `List` / `Iterate`, `Cancel`, `Pause`, `Resume`, `ChangePlan`, `AuditLogs`) and hangs the related resources off `Plans`, `Customers`, `Cards`, `Invoices`, `Portal`, `Products`, `Features`, `Addons` and `Usage`.
 
 ```go
-customer, err := client.Subscriptions.Customers.Upsert(ctx, map[string]any{"externalId": userID, "email": email}, "")
+customer, err := client.Subscriptions.Customers.Upsert(ctx, map[string]any{
+    "externalId": userID, "name": "Ada", "surname": "Yilmaz", "email": email,
+    "gsmNumber": "+905000000000", "identityNumber": "11111111111",
+    "billingAddress": "Example Street 1", "billingCity": "Istanbul",
+    "billingCountry": "Turkey", "billingZipCode": "34662",
+}, "") // renewals take the buyer from this record
 plan, err := client.Subscriptions.Plans.Create(ctx, map[string]any{
     "productId": productID, "code": "pro", "name": "Pro", "price": "9900", "currency": "TRY",
     "billing": map[string]any{"frequency": lunixi.SubscriptionBillingFrequencyMonthly},
@@ -321,7 +344,7 @@ sub, err := client.Subscriptions.Create(ctx, map[string]any{
 }, subscriptionKey) // required; sent in the header and the body
 ```
 
-Requests and filters are maps checked against `SubscriptionRoutes()` (the same route table as the other Lunixi SDKs) before sending: an unknown field or filter, a missing required field, a value outside its set (collection method, billing frequency, card verification mode, plan-change behavior, portal SDK mode) or a missing key returns `ErrConfiguration`, naming the field and never its value. Money members are canonical minor-unit strings in bodies, filters and answers (`"0"` is a free plan). `Create` requires an `Idempotency-Key` (1–200 printable ASCII characters); plan, customer, card, plan-change and charge-retry writes accept one. `Cards.Add` takes the checkout SDK's `paymentMethodToken`; a card number is refused. The subscription, plan, customer, card, invoice and audit-log lists return `CursorPage` with the `nextPageToken` in `NextCursor` (sent back as `pageToken` by `Iterate`) and `PageSize`. `Portal.CreateSdkSession` returns the session proof for the browser portal SDK; `Portal.CreatePortalLink` returns a hosted link (`SubscriptionPortalURL`). `IsSubscriptionActive`, `IsSubscriptionTerminal` and the `SubscriptionEvent*` webhook names come with it.
+Requests and filters are maps checked against `SubscriptionRoutes()` (the same route table as the other Lunixi SDKs) before sending: an unknown field or filter, a missing required field, a value outside its set (collection method, billing frequency, card verification mode, plan-change behavior, portal SDK mode) or a missing key returns `ErrConfiguration`, naming the field and never its value. Money members are canonical minor-unit strings in bodies, filters and answers (`"0"` is a free plan). `Create` requires an `Idempotency-Key` (1–200 printable ASCII characters); plan, customer, card, plan-change and charge-retry writes accept one. `Customers.Upsert` requires `externalId`, `name`, `surname`, `email`, `gsmNumber`, `identityNumber`, `billingAddress`, `billingCity`, `billingCountry` and `billingZipCode` (`phone`, `locale` and `metadata` are not accepted); the gateway answers a missing or invalid customer field with `SubscriptionCustomerErrorCodeFieldRequired` / `SubscriptionCustomerErrorCodeFieldInvalid`. `Cards.Add` takes the checkout SDK's `paymentMethodToken`; a card number is refused. The subscription, plan, customer, card, invoice and audit-log lists return `CursorPage` with the `nextPageToken` in `NextCursor` (sent back as `pageToken` by `Iterate`) and `PageSize`. `Portal.CreateSdkSession` returns the session proof for the browser portal SDK; `Portal.CreatePortalLink` returns a hosted link (`SubscriptionPortalURL`). `IsSubscriptionActive`, `IsSubscriptionTerminal` and the `SubscriptionEvent*` webhook names come with it.
 
 ## KYC and identity signals
 
@@ -335,13 +358,13 @@ Requests and filters are maps checked against `SubscriptionRoutes()` (the same r
 
 ```go
 legs := []lunixi.MarketplaceSeller{{SubDealerID: "d_alice", AmountMinor: "6050"}, {SubDealerID: "d_bob", AmountMinor: "4000"}}
-intent, err := client.Marketplace.CreateCheckoutIntent(ctx, intentRequest, legs, lunixi.MarketplaceMultiSellerPolicyAllOrNothing, attemptKey)
+intent, err := client.Marketplace.CreateCheckoutIntent(ctx, intentRequest, legs, lunixi.MarketplaceMultiSellerPolicyAllOrNothing, attemptKey) // intentRequest with the order details as in Create checkout
 dealer, err := client.Marketplace.CreateDealer(ctx, map[string]any{"legalName": "Acme Ltd", "dealerType": lunixi.MarketplaceDealerTypeLegalEntity})
 link, err := client.Marketplace.OnboardingToken(ctx, dealerID)
 onboardingURL := lunixi.MarketplaceOnboardingURL(link, "")
 ```
 
-The split charges (`CreateCheckoutIntent`, `ChargeMarketplaceCard2d`, `ChargeMarketplaceCard3d`, `ChargeMarketplaceCard`) are signed and take an optional payment key (16–128 printable ASCII characters). The seller legs must add up to `amount` with positive minor-unit shares; a card charge also needs `currency`, `orderId`, `card`, `buyer`, `billingAddress` and at least one basket item, and refuses `price` / `paidPrice` and a non-boolean `preauth`. Card data is sent as given and never appears in an error message; most marketplaces use the hosted `CreateCheckoutIntent`, which returns an `*APIError` when the answer carries no token. Dealer, commission, payout and audit routes are bearer-only and checked against `MarketplaceRoutes()`; money members are canonical minor-unit strings in bodies, filters and answers.
+The split charges (`CreateCheckoutIntent`, `ChargeMarketplaceCard2d`, `ChargeMarketplaceCard3d`, `ChargeMarketplaceCard`) are signed and take an optional payment key (16–128 printable ASCII characters). The seller legs must add up to `amount` with positive minor-unit shares; a card charge also needs `currency`, `orderId`, `card`, `buyer` (with `ip`), `billingAddress` and at least one basket item (`shippingAddress` for a `PHYSICAL` item), each with the order details fields, and refuses `price` / `paidPrice` and a non-boolean `preauth`. Card data is sent as given and never appears in an error message; most marketplaces use the hosted `CreateCheckoutIntent`, which returns an `*APIError` when the answer carries no token. Dealer, commission, payout and audit routes are bearer-only and checked against `MarketplaceRoutes()`; money members are canonical minor-unit strings in bodies, filters and answers.
 
 ## Verify webhooks and consume them transactionally
 

@@ -59,12 +59,12 @@ const (
 	PaymentLinkEnvironmentLive = "LIVE"
 )
 
-// Requirement of a buyer field on the payment page.
-const (
-	BuyerFieldRequirementHidden   = "HIDDEN"
-	BuyerFieldRequirementOptional = "OPTIONAL"
-	BuyerFieldRequirementRequired = "REQUIRED"
-)
+// BuyerFieldRequirementRequired is the requirement of a buyer field on the
+// payment page. Payment providers require the buyer, the identity number and
+// the billing address, so the link page always asks all five buyer fields:
+// REQUIRED is the only value (the gateway refuses any other with 400; leaving
+// a field out means REQUIRED).
+const BuyerFieldRequirementRequired = "REQUIRED"
 
 // Types of a payment link custom field (no file uploads).
 const (
@@ -144,7 +144,7 @@ var (
 	paymentLinkStates        = []string{PaymentLinkStateActive, PaymentLinkStatePaused, PaymentLinkStateCompleted, PaymentLinkStateExpired, PaymentLinkStateDeactivated, PaymentLinkStateTakenDown}
 	paymentLinkAttemptStates = []string{PaymentLinkAttemptStateOpen, PaymentLinkAttemptStateBound, PaymentLinkAttemptStateSucceeded, PaymentLinkAttemptStateFailed, PaymentLinkAttemptStateExpired, PaymentLinkAttemptStateAbandoned, PaymentLinkAttemptStateNeedsReview}
 	paymentLinkEnvironments  = []string{PaymentLinkEnvironmentTest, PaymentLinkEnvironmentLive}
-	buyerFieldRequirements   = []string{BuyerFieldRequirementHidden, BuyerFieldRequirementOptional, BuyerFieldRequirementRequired}
+	buyerFieldRequirements   = []string{BuyerFieldRequirementRequired}
 	customFieldTypes         = []string{CustomFieldTypeText, CustomFieldTypeNumber, CustomFieldTypeEmail, CustomFieldTypePhone, CustomFieldTypeDate, CustomFieldTypeSelect, CustomFieldTypeCheckbox, CustomFieldTypeTCKN, CustomFieldTypeVKN}
 	paymentLinkButtonLabels  = []string{PaymentLinkButtonLabelPay, PaymentLinkButtonLabelDonate, PaymentLinkButtonLabelBuy, PaymentLinkButtonLabelBook}
 	paymentLinkChannels      = []string{PaymentLinkDeliveryChannelEmail, PaymentLinkDeliveryChannelSMS}

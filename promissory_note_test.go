@@ -12,7 +12,7 @@ import (
 )
 
 func noteRequest(amount string) *DirectMethodPaymentRequest {
-	return NewDirectMethodPaymentRequest(amount, "TRY", "ORDER-77").WithMethodFields(PaymentMethodPromissoryNote, "note_provider", map[string]any{"debtorName": "Example Buyer"})
+	return withTestOrder(NewDirectMethodPaymentRequest(amount, "TRY", "ORDER-77").WithMethodFields(PaymentMethodPromissoryNote, "note_provider", map[string]any{"debtorName": "Example Buyer"}), amount)
 }
 
 func TestPromissoryNotePlanRules(t *testing.T) {
@@ -43,7 +43,7 @@ func TestPromissoryNotePlanRules(t *testing.T) {
 	client, requests := newRecordingClient(t, nil)
 	ctx := context.Background()
 	raw := func(block map[string]any) map[string]any {
-		return map[string]any{"paymentMethod": "PROMISSORY_NOTE", "amount": "120000", "currency": "TRY", "orderId": "ORDER-77", "promissoryNote": block}
+		return withOrder(map[string]any{"paymentMethod": "PROMISSORY_NOTE", "amount": "120000", "currency": "TRY", "orderId": "ORDER-77", "promissoryNote": block}, "120000")
 	}
 	schedule := []any{map[string]any{"amount": "60000", "dueDate": "2027-01-15"}, map[string]any{"amount": "60000", "dueDate": "2027-02-15"}}
 	for name, body := range map[string]map[string]any{
@@ -76,7 +76,7 @@ func TestPromissoryNoteValidPlanBodies(t *testing.T) {
 	if _, e := client.Payments.DirectMethodPayment(ctx, noteRequest("120000").WithPromissoryNoteCount(3), "attempt-0000000002"); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := client.Payments.DirectMethodPayment(ctx, NewDirectMethodPaymentRequest("120000", "TRY", "ORDER-78").WithMethodFields(PaymentMethodPromissoryNote, "", map[string]any{"noteCount": 6}), "attempt-0000000003"); e != nil {
+	if _, e := client.Payments.DirectMethodPayment(ctx, withTestOrder(NewDirectMethodPaymentRequest("120000", "TRY", "ORDER-78").WithMethodFields(PaymentMethodPromissoryNote, "", map[string]any{"noteCount": 6}), "120000"), "attempt-0000000003"); e != nil {
 		t.Fatal(e)
 	}
 	sent := requests()

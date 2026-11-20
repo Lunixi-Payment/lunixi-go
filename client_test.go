@@ -34,8 +34,17 @@ func newTestClient(t *testing.T, handler http.HandlerFunc, mutate func(*Config))
 	return client, server
 }
 
+// validIntent is a complete checkout intent; the buyer IP is left out (the
+// Lunixi form takes it from the browser).
 func validIntent() IntentRequest {
-	return IntentRequest{Amount: "10050", Currency: "TRY", OrderID: "order-123", CallbackURL: "https://merchant.example/payments/return", BasketItems: []BasketItem{{ID: "sku-1", Name: "Example", ItemType: "PHYSICAL", Price: "10050"}}}
+	buyer := testBuyer()
+	buyer.IP = ""
+	billing, shipping := testAddress(), testAddress()
+	return IntentRequest{
+		Amount: "10050", Currency: "TRY", OrderID: "order-123", CallbackURL: "https://merchant.example/payments/return",
+		Buyer: &buyer, BillingAddress: &billing, ShippingAddress: &shipping,
+		BasketItems: []BasketItem{{ID: "sku-1", Name: "Example", Category1: "Goods", ItemType: "PHYSICAL", Price: "10050"}},
+	}
 }
 
 func TestConfigurationLoggingDoesNotExposeCredentials(t *testing.T) {
@@ -343,7 +352,7 @@ func TestSplitPendingRemainsExplicit(t *testing.T) {
 		w.WriteHeader(400)
 		fmt.Fprint(w, `{"success":false,"code":"AWAITING_ACTION","data":{"splitPaymentId":"split-1","status":"AWAITING_ACTION"}}`)
 	}, nil)
-	body := map[string]any{"totalAmount": "100", "currency": "TRY", "ownerRef": "customer-1", "legs": []any{map[string]any{"amount": "100", "cardToken": "saved-test-token"}}}
+	body := withOrder(map[string]any{"totalAmount": "100", "currency": "TRY", "ownerRef": "customer-1", "legs": []any{map[string]any{"amount": "100", "cardToken": "saved-test-token"}}}, "100")
 	r, e := client.Payments.Split(context.Background(), body, "attempt-0000000001")
 	if e != nil {
 		t.Fatal(e)

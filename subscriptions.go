@@ -237,8 +237,13 @@ func (p *SubscriptionPlans) UpsertTranslation(ctx context.Context, planID, local
 // stable customer per user).
 type SubscriptionCustomers struct{ subs *SubscriptionsClient }
 
-// Upsert creates or updates a customer: externalId, optional email, name,
-// phone, locale, metadata. idempotencyKey "" sends none.
+// Upsert creates or updates a customer. Renewals take the buyer from this
+// record, so externalId, name, surname, email, gsmNumber, identityNumber,
+// billingAddress, billingCity, billingCountry and billingZipCode are required;
+// billingContactName and the shipping address (shippingContactName,
+// shippingAddress, shippingCity, shippingCountry, shippingZipCode) are
+// optional. A missing field fails before sending; the gateway answers it with
+// SubscriptionCustomerErrorCodeFieldRequired. idempotencyKey "" sends none.
 func (c *SubscriptionCustomers) Upsert(ctx context.Context, request map[string]any, idempotencyKey string) (json.RawMessage, error) {
 	body, err := requestObject("customers.upsert request", request)
 	if err != nil {

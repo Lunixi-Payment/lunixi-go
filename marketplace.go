@@ -37,7 +37,8 @@ type MarketplaceClient struct{ client *Client }
 // multiSellerPolicy "" is MarketplaceMultiSellerPolicyAllOrNothing;
 // idempotencyKey "" sends none. An answer without a token or form (a seller
 // not eligible under ALL_OR_NOTHING) is an *APIError instead of leaving the
-// buyer on an empty page.
+// buyer on an empty page. The order details of IntentRequest are required
+// (buyer IP optional); missing paths fail before sending.
 func (m *MarketplaceClient) CreateCheckoutIntent(ctx context.Context, request IntentRequest, sellers []MarketplaceSeller, multiSellerPolicy, idempotencyKey string) (*Response, error) {
 	policy, err := multiSellerPolicyOf(multiSellerPolicy)
 	if err != nil {
@@ -78,7 +79,9 @@ func (m *MarketplaceClient) CreateCheckoutIntent(ctx context.Context, request In
 // when threeDS is true, /2d otherwise. amount is positive minor-unit text,
 // price and paidPrice are refused, preauth is a boolean. Prefer
 // ChargeMarketplaceCard2d / ChargeMarketplaceCard3d, which also check the
-// commercial context and the legs.
+// commercial context and the legs. The order details are required (buyer with
+// ip, billingAddress, basketItems; shippingAddress for a PHYSICAL item);
+// missing paths fail with ErrConfiguration before sending.
 func (m *MarketplaceClient) ChargeMarketplaceCard(ctx context.Context, payload map[string]any, threeDS bool, idempotencyKey string) (*Response, error) {
 	body, err := requestObject("chargeMarketplaceCard payload", payload)
 	if err != nil {

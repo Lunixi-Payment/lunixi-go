@@ -360,3 +360,38 @@ func TestOnlyThePortalPanelFamilyIsReachable(t *testing.T) {
 		t.Fatalf("requests %+v", sent)
 	}
 }
+
+func TestSubscriptionCustomerUpsertRequiresTheBuyerRecord(t *testing.T) {
+	customer := func() map[string]any {
+		return map[string]any{
+			"externalId": "user-42", "name": "Ada", "surname": "Yilmaz", "email": "ada@example.com",
+			"gsmNumber": "+905000000000", "identityNumber": "11111111111", "billingAddress": "Example Street 1",
+			"billingCity": "Istanbul", "billingCountry": "Turkey", "billingZipCode": "34662",
+		}
+	}
+	ctx := context.Background()
+	for name, mutate := range map[string]func(map[string]any){
+		"no surname":     func(c map[string]any) { delete(c, "surname") },
+		"blank zip code": func(c map[string]any) { c["billingZipCode"] = "" },
+		"phone":          func(c map[string]any) { c["phone"] = "+905000000000" },
+		"locale":         func(c map[string]any) { c["locale"] = "tr" },
+		"metadata":       func(c map[string]any) { c["metadata"] = map[string]any{"a": "b"} },
+	} {
+		client, requests := newProductClient(t, 0, nil)
+		body := customer()
+		mutate(body)
+		_, err := client.Subscriptions.Customers.Upsert(ctx, body, "")
+		expectLocalError(t, name, err, requests())
+	}
+	client, requests := newProductClient(t, 0, func(w http.ResponseWriter, _ *http.Request, _ int) {
+		productJSON(w, 200, `{"success":true,"data":{"id":"cus_1"}}`)
+	})
+	body := customer()
+	body["shippingCity"] = "Ankara"
+	if _, err := client.Subscriptions.Customers.Upsert(ctx, body, ""); err != nil {
+		t.Fatal(err)
+	}
+	if sent := requests(); len(sent) != 1 || sent[0].Method != "PUT" || sent[0].URI != "/api/v1/subscriptions/customers" {
+		t.Fatalf("requests %+v", sent)
+	}
+}

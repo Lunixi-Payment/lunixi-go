@@ -224,25 +224,28 @@ func (r *DirectMethodPaymentRequest) WithPaymentGroup(value string) *DirectMetho
 	return r
 }
 
-// WithBuyer sets the buyer; values are sent to Lunixi only.
+// WithBuyer sets the buyer (required, BuyerRequiredFields including ip);
+// values are sent to Lunixi only.
 func (r *DirectMethodPaymentRequest) WithBuyer(value Buyer) *DirectMethodPaymentRequest {
 	r.buyer = &value
 	return r
 }
 
-// WithBillingAddress sets the billing address.
+// WithBillingAddress sets the billing address (required).
 func (r *DirectMethodPaymentRequest) WithBillingAddress(value Address) *DirectMethodPaymentRequest {
 	r.billingAddress = &value
 	return r
 }
 
-// WithShippingAddress sets the shipping address.
+// WithShippingAddress sets the shipping address; required when a basket item
+// is PHYSICAL.
 func (r *DirectMethodPaymentRequest) WithShippingAddress(value Address) *DirectMethodPaymentRequest {
 	r.shippingAddress = &value
 	return r
 }
 
-// WithBasketItems sets the basket. SHOPPING_LOAN requires 1 to 100 items.
+// WithBasketItems sets the basket (at least one item). SHOPPING_LOAN allows
+// at most 100 items.
 func (r *DirectMethodPaymentRequest) WithBasketItems(items []BasketItem) *DirectMethodPaymentRequest {
 	r.basketItems = slices.Clone(items)
 	return r
@@ -333,6 +336,9 @@ func (r *DirectMethodPaymentRequest) Body() (map[string]any, error) {
 // server (POST /payments/direct/payment). key is required: persist it per
 // payment attempt and reuse it when retrying the same payment. This is also the
 // only server-side card charge (WithCard, plus WithForce3D(true) for 3D Secure).
+// The order details are required (WithBuyer, WithBillingAddress,
+// WithBasketItems; WithShippingAddress for a PHYSICAL item); missing paths
+// fail with ErrConfiguration before sending.
 //
 // The gateway envelope comes back as it is: Data holds paymentId, orderId,
 // status, paymentMethod, providerCode and, when the buyer must act, action

@@ -84,16 +84,18 @@ func TestPaymentLinkCreateRejectsBeforeNetwork(t *testing.T) {
 	_, e = client.PaymentLinks.Create(ctx, fixedLink(), strings.Repeat("k", 201))
 	mustReject(t, "201 character key", e)
 	for name, mutate := range map[string]func(*PaymentLinkRequest){
-		"usage":            func(r *PaymentLinkRequest) { r.Usage = "ONCE" },
-		"amount mode":      func(r *PaymentLinkRequest) { r.AmountMode = "FREE" },
-		"environment":      func(r *PaymentLinkRequest) { r.Environment = "PROD" },
-		"title":            func(r *PaymentLinkRequest) { r.Title = " " },
-		"decimal amount":   func(r *PaymentLinkRequest) { r.AmountMinor = "1500.00" },
-		"suggested amount": func(r *PaymentLinkRequest) { r.SuggestedAmountsMinor = []string{"100", "1.5"} },
-		"image asset":      func(r *PaymentLinkRequest) { r.ImageAssetID = "asset-1" },
-		"locale":           func(r *PaymentLinkRequest) { r.Locale = "de" },
-		"button label":     func(r *PaymentLinkRequest) { r.ButtonLabelKey = "GIVE" },
-		"buyer field":      func(r *PaymentLinkRequest) { r.BuyerFields = &PaymentLinkBuyerFields{Email: "MANDATORY"} },
+		"usage":                func(r *PaymentLinkRequest) { r.Usage = "ONCE" },
+		"amount mode":          func(r *PaymentLinkRequest) { r.AmountMode = "FREE" },
+		"environment":          func(r *PaymentLinkRequest) { r.Environment = "PROD" },
+		"title":                func(r *PaymentLinkRequest) { r.Title = " " },
+		"decimal amount":       func(r *PaymentLinkRequest) { r.AmountMinor = "1500.00" },
+		"suggested amount":     func(r *PaymentLinkRequest) { r.SuggestedAmountsMinor = []string{"100", "1.5"} },
+		"image asset":          func(r *PaymentLinkRequest) { r.ImageAssetID = "asset-1" },
+		"locale":               func(r *PaymentLinkRequest) { r.Locale = "de" },
+		"button label":         func(r *PaymentLinkRequest) { r.ButtonLabelKey = "GIVE" },
+		"buyer field":          func(r *PaymentLinkRequest) { r.BuyerFields = &PaymentLinkBuyerFields{Email: "MANDATORY"} },
+		"hidden buyer field":   func(r *PaymentLinkRequest) { r.BuyerFields = &PaymentLinkBuyerFields{Name: "HIDDEN"} },
+		"optional buyer field": func(r *PaymentLinkRequest) { r.BuyerFields = &PaymentLinkBuyerFields{Phone: "OPTIONAL"} },
 		"custom field type": func(r *PaymentLinkRequest) {
 			r.CustomFields = []PaymentLinkCustomField{{Key: "f", Label: "F", FieldType: "FILE"}}
 		},

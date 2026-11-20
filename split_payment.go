@@ -55,6 +55,8 @@ const SplitLegEventsSubscription = "payment.split.leg_events"
 
 var splitLegBlockFields = []string{"mobileBilling", "wallet", "promissoryNote"}
 
+var splitPaymentFields = []string{"totalAmount", "currency", "ownerRef", "legs", "orderId", "ownerScope", "callbackUrl", "buyer", "billingAddress", "shippingAddress", "basketItems"}
+
 var splitPaymentLegFields = []string{"paymentMethod", "cardToken", "amount", "force3D", "installment", "installmentQuoteToken", "mobileBilling", "wallet", "promissoryNote"}
 
 var splitCardLegOnlyFields = []string{"cardToken", "force3D", "installmentQuoteToken"}
@@ -72,6 +74,12 @@ var splitPaymentStatuses = []string{
 // split legs. The returned slice is a fresh copy.
 func SplitLegBlockFields() []string { return slices.Clone(splitLegBlockFields) }
 
+// SplitPaymentFields returns the fields of a split payment body: the amounts
+// and legs plus the order details (buyer, billingAddress, shippingAddress,
+// basketItems) every leg is sent to its provider with. The returned slice is
+// a fresh copy.
+func SplitPaymentFields() []string { return slices.Clone(splitPaymentFields) }
+
 // SplitPaymentLegFields returns the fields of one split leg. The returned
 // slice is a fresh copy.
 func SplitPaymentLegFields() []string { return slices.Clone(splitPaymentLegFields) }
@@ -80,7 +88,8 @@ func SplitPaymentLegFields() []string { return slices.Clone(splitPaymentLegField
 // The returned slice is a fresh copy.
 func ListSplitPaymentsFilters() []string { return slices.Clone(listSplitPaymentsFilters) }
 
-// validateSplitLegs applies the leg rules to a raw split body: known leg
+// validateSplitLegs applies the leg rules to a raw split body: known body
+// fields (SplitPaymentFields) and known leg
 // fields only; a card leg (paymentMethod empty or CARD) carries no method
 // block; a non-card leg is a mobileBilling, wallet or promissoryNote method
 // with exactly its own block, a providerCode and no card fields. A
@@ -91,6 +100,11 @@ func validateSplitLegs(raw []byte) error {
 		return err
 	}
 	body, _ := value.(map[string]any)
+	for _, key := range sortedKeys(body) {
+		if !slices.Contains(splitPaymentFields, key) {
+			return invalid("unknown split payment field: " + key)
+		}
+	}
 	legs, _ := body["legs"].([]any)
 	for index, entry := range legs {
 		path := "legs[" + strconv.Itoa(index) + "]"
